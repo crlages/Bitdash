@@ -138,7 +138,7 @@
   </div>
 
 <script>
-const USERS='premiumUsers', SESSION='premiumSession';
+const API = `http://${location.hostname}:3001`;
 const DEFAULT_PORT=[
   {ticker:'MXRF11', qty:120, cls:'FII'},
   {ticker:'HGLG11', qty:60, cls:'FII'},
@@ -159,17 +159,32 @@ const rules = {
 
 let portfolio = DEFAULT_PORT.slice();
 let metrics = {};
+let currentUser = null;
 
-function getSession(){ try{return JSON.parse(localStorage.getItem(SESSION)||'null')}catch{return null} }
-function isPremium(){ return !!getSession()?.email; }
+async function api(path, method='GET', body){
+  const r = await fetch(API+path, {
+    method,
+    headers: {'Content-Type':'application/json'},
+    credentials: 'include',
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let j={}; try{ j=await r.json(); }catch{}
+  if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
+  return j;
+}
 
-function loadPortfolio(){
-  const sess = getSession();
-  if (sess?.email) {
-    const users = JSON.parse(localStorage.getItem(USERS)||'{}');
-    const saved = users[sess.email]?.portfolio;
-    if (saved?.length) return saved;
+function isPremium(){ return !!currentUser?.email; }
+
+async function loadPortfolio(){
+  try {
+    const me = await api('/auth/me');
+    currentUser = me.user;
+    const saved = await api('/portfolio');
+    if (saved?.portfolio?.length) return saved.portfolio;
+  } catch {
+    currentUser = null;
   }
+
   const inbound = JSON.parse(sessionStorage.getItem('inboundPortfolio')||'null');
   if (inbound?.length) {
     sessionStorage.setItem('freePortfolio', JSON.stringify(inbound));
@@ -237,8 +252,7 @@ async function fetchPvp(asset){
 }
 
 function render(){
-  const sess = getSession();
-  document.getElementById('authBtn').textContent = sess?.email ? `Premium: ${sess.email}` : 'Cadastro/Login Premium';
+  document.getElementById('authBtn').textContent = currentUser?.email ? `Premium: ${currentUser.email}` : 'Cadastro/Login Premium';
   document.getElementById('saveBtn').classList.toggle('hidden', !isPremium());
   document.getElementById('logoutBtn').classList.toggle('hidden', !isPremium());
   document.getElementById('mode').textContent = isPremium()
@@ -344,23 +358,28 @@ function updateSummary(){
 
 // actions
 document.getElementById('refreshBtn').onclick = refresh;
-document.getElementById('saveBtn').onclick = ()=>{
-  const sess = getSession(); if (!sess?.email) return;
-  const users = JSON.parse(localStorage.getItem(USERS)||'{}');
-  users[sess.email] = users[sess.email] || {};
-  users[sess.email].portfolio = portfolio;
-  localStorage.setItem(USERS, JSON.stringify(users));
-  alert('Carteira salva com sucesso.');
+document.getElementById('saveBtn').onclick = async ()=>{
+  if (!isPremium()) return;
+  try {
+    await api('/portfolio','POST',{ portfolio });
+    alert('Carteira salva com sucesso.');
+  } catch (e) {
+    alert('Erro ao salvar: ' + e.message);
+  }
 };
-document.getElementById('logoutBtn').onclick = ()=>{ localStorage.removeItem(SESSION); location.reload(); };
-
-portfolio = loadPortfolio().map(x=>({ ...x, ticker: normalizeTicker(x.ticker), cls: x.cls || classify(x.ticker) }));
+document.getElementById('logoutBtn').onclick = async ()=>{
+  try { await api('/auth/logout','POST',{}); } catch {}
+  location.reload();
+};
 
 window.addEventListener('resize', () => {
   updateSummary();
 });
 
-render();
+(async function init(){
+  portfolio = (await loadPortfolio()).map(x=>({ ...x, ticker: normalizeTicker(x.ticker), cls: x.cls || classify(x.ticker) }));
+  render();
+})();
 </script>
 </body>
 </html>
