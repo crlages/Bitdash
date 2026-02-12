@@ -115,10 +115,24 @@
     </div>
     <div class="card" style="max-height:360px; overflow:auto;">
       <h3>Inventário de posições</h3>
-      <div class="muted">Quantidade de cotas/ações por ativo.</div>
-      <table style="margin-top:8px;">
-        <thead><tr><th>Ativo</th><th>Classe</th><th>Quantidade</th></tr></thead>
-        <tbody id="invRows"></tbody>
+      <div class="muted">Separado por classe com valor unitário e total por ativo (estimado).</div>
+
+      <h4 style="margin:10px 0 6px;">FIIs</h4>
+      <table>
+        <thead><tr><th>Ativo</th><th>Qtd</th><th>Valor cota</th><th>Valor total</th></tr></thead>
+        <tbody id="invFiis"></tbody>
+      </table>
+
+      <h4 style="margin:12px 0 6px;">Ações</h4>
+      <table>
+        <thead><tr><th>Ativo</th><th>Qtd</th><th>Valor cota</th><th>Valor total</th></tr></thead>
+        <tbody id="invAcoes"></tbody>
+      </table>
+
+      <h4 style="margin:12px 0 6px;">Criptos</h4>
+      <table>
+        <thead><tr><th>Ativo</th><th>Qtd</th><th>Valor unidade</th><th>Valor total</th></tr></thead>
+        <tbody id="invCriptos"></tbody>
       </table>
     </div>
   </div>
@@ -259,13 +273,19 @@ function render(){
     ? 'Modo premium: pode salvar e recuperar depois.'
     : 'Modo grátis: ao sair do site, os dados podem ser perdidos (amostra).';
 
-  const inv = document.getElementById('invRows'); inv.innerHTML='';
+  const invFiis = document.getElementById('invFiis'); invFiis.innerHTML='';
+  const invAcoes = document.getElementById('invAcoes'); invAcoes.innerHTML='';
+  const invCriptos = document.getElementById('invCriptos'); invCriptos.innerHTML='';
   const dec = document.getElementById('decisionRows'); dec.innerHTML='';
 
   portfolio.forEach(a=>{
-    const tr1=document.createElement('tr');
-    tr1.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${a.cls}</td><td>${Number(a.qty).toLocaleString('pt-BR',{maximumFractionDigits:8})}</td>`;
-    inv.appendChild(tr1);
+    const unit = unitPrice(a);
+    const total = estimateValue(a);
+    const trInv=document.createElement('tr');
+    trInv.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${Number(a.qty).toLocaleString('pt-BR',{maximumFractionDigits:8})}</td><td>${brl(unit)}</td><td>${brl(total)}</td>`;
+    if (a.cls==='FII') invFiis.appendChild(trInv);
+    else if (a.cls==='CRIPTO') invCriptos.appendChild(trInv);
+    else invAcoes.appendChild(trInv);
 
     const v = metrics[a.ticker];
     const [txt, cls] = signal(a,v);
@@ -299,14 +319,15 @@ const priceRef = {
   MXRF11: 10.3, HGLG11: 158.0, PETR4: 37.8, WEGE3: 53.0,
   VISC11: 108.0, KNRI11: 151.0, BBAS3: 31.0, VALE3: 55.0
 };
+const usdRef = {BTC:98000, ETH:3200, SOL:180, XRP:0.6, BNB:650, ADA:0.8, DOGE:0.12, LTC:90, USDT:1};
+
+function unitPrice(asset){
+  if (asset.cls==='CRIPTO') return (usdRef[asset.ticker] || 1) * 5.2;
+  return priceRef[asset.ticker] || 20;
+}
 
 function estimateValue(asset){
-  const ref = priceRef[asset.ticker] || 20;
-  if (asset.cls==='CRIPTO') {
-    const usdRef = {BTC:98000, ETH:3200, SOL:180, XRP:0.6, BNB:650, ADA:0.8, DOGE:0.12, LTC:90, USDT:1};
-    return asset.qty * (usdRef[asset.ticker] || 1) * 5.2;
-  }
-  return asset.qty * ref;
+  return asset.qty * unitPrice(asset);
 }
 
 function updateSummary(){
