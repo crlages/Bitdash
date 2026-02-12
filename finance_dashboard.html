@@ -120,6 +120,28 @@
     </div>
   </div>
 
+  <div class="grid two" style="margin-top:16px;">
+    <div class="card">
+      <h3>Semáforo FIIs (Regra de Preço)</h3>
+      <div class="small muted">Baseado em P/VP alvo: Tijolo (0,95 / 1,05) e Papel/High Yield (0,90 / 1,00).</div>
+      <canvas id="fiiChart" height="240" style="margin-top:10px;"></canvas>
+    </div>
+    <div class="card">
+      <h3>Regras por FII</h3>
+      <table>
+        <thead><tr><th>FII</th><th>Tipo</th><th>🟢 Verde</th><th>🟡 Amarela</th><th>🔴 Vermelha</th></tr></thead>
+        <tbody>
+          <tr><td>IRIM11</td><td>Papel</td><td>≤0,90</td><td>0,90–1,00</td><td>>1,00</td></tr>
+          <tr><td>RZTR11</td><td>Agro</td><td>≤0,90</td><td>0,90–1,00</td><td>>1,00</td></tr>
+          <tr><td>KNCA11</td><td>Papel</td><td>≤0,90</td><td>0,90–1,00</td><td>>1,00</td></tr>
+          <tr><td>BRCO11 / HGLG11 / VILG11 / XPLG11 / BTLG11 / HGRU11 / KNRI11</td><td>Tijolo</td><td>≤0,95</td><td>0,95–1,05</td><td>>1,05</td></tr>
+          <tr><td>HGBS11 / VISC11</td><td>Shopping</td><td>≤0,90</td><td>0,90–1,00</td><td>>1,00</td></tr>
+          <tr><td>KDIF11 / CPTS11 / MXRF11</td><td>Papel/Infra</td><td>≤0,90</td><td>0,90–1,00</td><td>>1,00</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="card" style="margin-top:16px;">
     <h3>Base de valores informados</h3>
     <table>
@@ -154,6 +176,29 @@
       options: {
         plugins: {
           legend: { labels: { color: '#e8ecff' } }
+        }
+      }
+    });
+
+    const fiiCtx = document.getElementById('fiiChart');
+    const labels = ['IRIM11','RZTR11','KNCA11','BRCO11','HGLG11','VILG11','XPLG11','BTLG11','HGRU11','HGBS11','VISC11','KNRI11','KDIF11','CPTS11','MXRF11'];
+    new Chart(fiiCtx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: '🟢 Faixa Verde (máx P/VP)', data: [0.90,0.90,0.90,0.95,0.95,0.95,0.95,0.95,0.95,0.90,0.90,0.95,0.90,0.90,0.90], backgroundColor: '#35d07f' },
+          { label: '🟡 Limite Amarelo (máx P/VP)', data: [1.00,1.00,1.00,1.05,1.05,1.05,1.05,1.05,1.05,1.00,1.00,1.05,1.00,1.00,1.00], backgroundColor: '#ffcc66' }
+        ]
+      },
+      options: {
+        scales: {
+          x: { ticks: { color: '#dce5ff', maxRotation: 70, minRotation: 45 } },
+          y: { ticks: { color: '#dce5ff' }, beginAtZero: false, min: 0.8, max: 1.1 }
+        },
+        plugins: {
+          legend: { labels: { color: '#e8ecff' } },
+          title: { display: true, text: 'Use o P/VP atual e compare com as faixas', color: '#9aa7d8' }
         }
       }
     });
