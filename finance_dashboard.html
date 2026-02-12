@@ -35,6 +35,9 @@
       padding: 16px;
       box-shadow: 0 10px 25px rgba(0,0,0,.18);
     }
+    .buy-box { border-left: 6px solid var(--ok); }
+    .wait-box { border-left: 6px solid var(--warn); }
+    .dont-box { border-left: 6px solid #ff6b6b; }
     .kpi { font-size: 1.5rem; font-weight: 700; margin-top: 8px; }
     .small { font-size: .92rem; }
     table { width: 100%; border-collapse: collapse; font-size: .92rem; }
@@ -76,7 +79,10 @@
   <div class="grid two" style="margin-top:16px;">
     <div class="card">
       <h3>Alocação por bloco</h3>
-      <canvas id="allocChart" height="220"></canvas>
+      <div style="max-width:260px; margin:0 auto;">
+        <canvas id="allocChart" height="180"></canvas>
+      </div>
+      <div class="small muted" style="text-align:center; margin-top:8px;">Pizza reduzida para leitura rápida</div>
     </div>
     <div class="card">
       <h3>Leitura rápida</h3>
@@ -123,20 +129,33 @@
   <div class="grid two" style="margin-top:16px;">
     <div class="card">
       <h3>Semáforo FIIs (Regra de Preço)</h3>
-      <div class="small muted">Baseado em P/VP alvo: Tijolo (0,95 / 1,05) e Papel/High Yield (0,90 / 1,00).</div>
-      <canvas id="fiiChart" height="240" style="margin-top:10px;"></canvas>
+      <div class="small muted">Para decidir compra agora: compare o P/VP atual de cada FII com a faixa.</div>
+      <canvas id="fiiChart" height="220" style="margin-top:10px;"></canvas>
     </div>
     <div class="card">
-      <h3>Regras por FII</h3>
-      <table>
-        <thead><tr><th>FII</th><th>Tipo</th><th>🟢 Verde</th><th>🟡 Amarela</th><th>🔴 Vermelha</th></tr></thead>
+      <h3>O que comprar agora (regra objetiva)</h3>
+      <div class="card buy-box" style="margin:8px 0; padding:10px;">
+        <strong>🟢 COMPRAR FORTE</strong>
+        <div class="small">Quando P/VP estiver na faixa verde.</div>
+        <div class="small muted">Motivo: desconto + maior margem de segurança + melhor retorno esperado no reinvestimento.</div>
+      </div>
+      <div class="card wait-box" style="margin:8px 0; padding:10px;">
+        <strong>🟡 COMPRAR NORMAL</strong>
+        <div class="small">Quando estiver em faixa amarela.</div>
+        <div class="small muted">Motivo: preço justo, sem grande desconto.</div>
+      </div>
+      <div class="card dont-box" style="margin:8px 0; padding:10px;">
+        <strong>🔴 EVITAR AGORA</strong>
+        <div class="small">Quando passar da faixa vermelha.</div>
+        <div class="small muted">Motivo: ativo esticado; melhor preservar caixa para oportunidade.</div>
+      </div>
+
+      <table style="margin-top:8px;">
+        <thead><tr><th>Grupo</th><th>🟢 Verde</th><th>🟡 Amarela</th><th>🔴 Vermelha</th></tr></thead>
         <tbody>
-          <tr><td>IRIM11</td><td>Papel</td><td>≤0,90</td><td>0,90–1,00</td><td>>1,00</td></tr>
-          <tr><td>RZTR11</td><td>Agro</td><td>≤0,90</td><td>0,90–1,00</td><td>>1,00</td></tr>
-          <tr><td>KNCA11</td><td>Papel</td><td>≤0,90</td><td>0,90–1,00</td><td>>1,00</td></tr>
-          <tr><td>BRCO11 / HGLG11 / VILG11 / XPLG11 / BTLG11 / HGRU11 / KNRI11</td><td>Tijolo</td><td>≤0,95</td><td>0,95–1,05</td><td>>1,05</td></tr>
-          <tr><td>HGBS11 / VISC11</td><td>Shopping</td><td>≤0,90</td><td>0,90–1,00</td><td>>1,00</td></tr>
-          <tr><td>KDIF11 / CPTS11 / MXRF11</td><td>Papel/Infra</td><td>≤0,90</td><td>0,90–1,00</td><td>>1,00</td></tr>
+          <tr><td>Tijolo (BRCO,HGLG,VILG,XPLG,BTLG,HGRU,KNRI)</td><td>≤0,95</td><td>0,95–1,05</td><td>>1,05</td></tr>
+          <tr><td>Papel/High Yield (IRIM,RZTR,KNCA,KDIF,CPTS,MXRF)</td><td>≤0,90</td><td>0,90–1,00</td><td>>1,00</td></tr>
+          <tr><td>Shopping (HGBS,VISC)</td><td>≤0,90</td><td>0,90–1,00</td><td>>1,00</td></tr>
         </tbody>
       </table>
     </div>
