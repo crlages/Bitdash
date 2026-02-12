@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portfolio Intake Pro (MVP)</title>
+  <style>
+    :root{--bg:#0a0f1f;--card:#121a33;--line:#273765;--txt:#e8edff;--muted:#9ca9d3;--ok:#2ecc71;--warn:#f1c40f;--bad:#ff5f6d;--accent:#6ea8fe}
+    *{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,#0a0f1f,#0d1530);color:var(--txt);font-family:Inter,Segoe UI,Arial;padding:24px}
+    h1,h2{margin:0 0 8px} .muted{color:var(--muted)}
+    .grid{display:grid;gap:16px}.two{grid-template-columns:1.1fr .9fr}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+    textarea{width:100%;min-height:170px;background:#0f1731;border:1px solid #31457d;color:#fff;border-radius:10px;padding:10px;font-family:ui-monospace,Consolas,monospace}
+    button{background:#1a2b59;color:#fff;border:1px solid #3b56a3;border-radius:9px;padding:9px 12px;cursor:pointer}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .pill{padding:3px 8px;border-radius:999px;font-size:.78rem;font-weight:700}
+    .p-ok{background:rgba(46,204,113,.18);color:#8ef0b7}.p-warn{background:rgba(241,196,15,.2);color:#ffd96a}.p-bad{background:rgba(255,95,109,.2);color:#ffb0b7}
+    table{width:100%;border-collapse:collapse;font-size:.92rem} th,td{padding:8px;border-bottom:1px solid #21305d;text-align:left} th{color:var(--muted)}
+    .kpis{display:grid;grid-template-columns:repeat(4,minmax(110px,1fr));gap:8px}
+    .kpi{background:#0f1731;border:1px solid #283b72;border-radius:10px;padding:10px}
+    .kpi .v{font-weight:800;font-size:1.2rem}
+    @media(max-width:900px){.two{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
+  </style>
+</head>
+<body>
+  <h1>Portfolio Intake Pro</h1>
+  <div class="muted">Novo site separado do dashboard antigo: foco em cadastro inteligente por texto livre.</div>
+
+  <div class="grid two" style="margin-top:16px;">
+    <div class="card">
+      <h2>1) Cole sua carteira (texto livre)</h2>
+      <div class="muted">Ex.: "MXRF11 620 PETR4 126 IVV 3 SCHD 10 Nubank R$ 9000"</div>
+      <textarea id="rawInput">Nubank R$ 9.000,00 99 Pay R$ 5.000,00
+IRIM11 244 RZTR11 187 KNCA11 174 BRCO11 79 HGLG11 64
+KLBN11 279 TASA4 1079 ITSA3 460 CMIG4 234 BBAS3 165 PETR4 126
+IVV 3 SCHD 10</textarea>
+      <div class="row" style="margin-top:10px;">
+        <button id="parseBtn">Processar carteira</button>
+        <button id="demoBtn">Carregar exemplo completo</button>
+        <span id="status" class="muted">Aguardando processamento...</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>2) Resultado do parser</h2>
+      <div class="kpis" style="margin-top:8px;">
+        <div class="kpi"><div class="muted">Ativos</div><div class="v" id="kAssets">0</div></div>
+        <div class="kpi"><div class="muted">FIIs</div><div class="v" id="kFiis">0</div></div>
+        <div class="kpi"><div class="muted">Ações</div><div class="v" id="kStocks">0</div></div>
+        <div class="kpi"><div class="muted">ETFs EUA</div><div class="v" id="kEtfs">0</div></div>
+      </div>
+      <div style="margin-top:10px;" id="quality"></div>
+      <div class="muted" style="margin-top:10px;">Estratégia em escala: parser determinístico primeiro, IA apenas fallback.</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h2>3) Inventário estruturado</h2>
+    <table>
+      <thead><tr><th>Ticker</th><th>Qtd</th><th>Classe</th><th>Confiança</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const fiiSet = new Set(['IRIM11','RZTR11','KNCA11','BRCO11','HGLG11','VILG11','XPLG11','BTLG11','HGRU11','HGBS11','VISC11','KNRI11','KDIF11','CPTS11','MXRF11']);
+    const stockSet = new Set(['KLBN11','TASA4','ITSA3','CMIG4','BBAS3','PETR4','WEGE3','RAIZ4','PETZ3','VALE3','CSAN3','AURE3','LIGT3','SAPR4','AGRO3','UNIP3','TAEE11','JBSS3','GGBR4','CPLE6','CSMG3','AXIA3','CSNA3','MGLU3','OIBR3','IRBR3']);
+    const etfSet = new Set(['IVV','SCHD']);
+
+    function classify(t){
+      if (fiiSet.has(t)) return 'FII';
+      if (stockSet.has(t)) return 'AÇÃO BR';
+      if (etfSet.has(t)) return 'ETF EUA';
+      if (/^[A-Z]{4}\d{1,2}$/.test(t)) return 'AÇÃO BR?';
+      if (/^[A-Z]{4,6}\d{2}$/.test(t)) return 'FII?';
+      if (/^[A-Z]{2,5}$/.test(t)) return 'ETF/US?';
+      return 'OUTRO';
+    }
+
+    function confidence(cls){
+      if (cls==='FII' || cls==='AÇÃO BR' || cls==='ETF EUA') return ['ALTA','p-ok'];
+      if (cls.includes('?')) return ['MÉDIA','p-warn'];
+      return ['BAIXA','p-bad'];
+    }
+
+    function parse(text){
+      const normalized = text
+        .replace(/[\n\t;,]+/g,' ')
+        .replace(/R\$\s?[\d\.]+,?\d*/g,' ')
+        .toUpperCase();
+      const re = /\b([A-Z]{2,6}\d{0,2})\b\s+(\d{1,7})\b/g;
+      const map = new Map();
+      let m;
+      while((m = re.exec(normalized))!==null){
+        const t = m[1], q = Number(m[2]);
+        if(!q || q<1) continue;
+        map.set(t, (map.get(t)||0)+q);
+      }
+      return [...map.entries()].map(([ticker,qty])=>({ticker,qty,class:classify(ticker)}));
+    }
+
+    function render(items){
+      const rows = document.getElementById('rows'); rows.innerHTML='';
+      let fiis=0, stocks=0, etfs=0, high=0, med=0, low=0;
+      items.sort((a,b)=>a.ticker.localeCompare(b.ticker));
+      items.forEach(it=>{
+        if(it.class==='FII') fiis++;
+        if(it.class==='AÇÃO BR') stocks++;
+        if(it.class==='ETF EUA') etfs++;
+        const [c,cls] = confidence(it.class);
+        if(c==='ALTA') high++; else if(c==='MÉDIA') med++; else low++;
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td><strong>${it.ticker}</strong></td><td>${it.qty}</td><td>${it.class}</td><td><span class="pill ${cls}">${c}</span></td>`;
+        rows.appendChild(tr);
+      });
+      document.getElementById('kAssets').textContent = items.length;
+      document.getElementById('kFiis').textContent = fiis;
+      document.getElementById('kStocks').textContent = stocks;
+      document.getElementById('kEtfs').textContent = etfs;
+      document.getElementById('quality').innerHTML = `
+        <span class="pill p-ok">ALTA: ${high}</span>
+        <span class="pill p-warn">MÉDIA: ${med}</span>
+        <span class="pill p-bad">BAIXA: ${low}</span>
+      `;
+    }
+
+    function run(){
+      const raw = document.getElementById('rawInput').value;
+      const items = parse(raw);
+      render(items);
+      document.getElementById('status').textContent = `Processado com parser local: ${items.length} ativos.`;
+    }
+
+    document.getElementById('parseBtn').addEventListener('click', run);
+    document.getElementById('demoBtn').addEventListener('click', ()=>{
+      document.getElementById('rawInput').value = `Nubank R$ 9.000,00 99 Pay R$ 5.000,00 Trezor R$ 49.108,00\nIRIM11 244 RZTR11 187 KNCA11 174 BRCO11 79 HGLG11 64 VILG11 139 XPLG11 81 BTLG11 80 HGRU11 99 HGBS11 680 VISC11 72 KNRI11 65 KDIF11 80 CPTS11 886 MXRF11 620\nKLBN11 279 TASA4 1079 ITSA3 460 CMIG4 234 BBAS3 165 PETR4 126 WEGE3 36 RAIZ4 531 PETZ3 270 VALE3 20\nIVV 3 SCHD 10`;
+      run();
+    });
+
+    run();
+  </script>
+</body>
+</html>
