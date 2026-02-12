@@ -127,31 +127,56 @@ app.get('/market/asset', async (req, res) => {
     }
 
     const lower = ticker.toLowerCase();
-    const src = cls === 'FII'
-      ? `https://r.jina.ai/http://investidor10.com.br/fiis/${lower}/`
+    const sources = cls === 'FII'
+      ? [
+          `https://r.jina.ai/http://investidor10.com.br/fiis/${lower}/`,
+          `https://r.jina.ai/http://statusinvest.com.br/fundos-imobiliarios/${lower}`,
+          `https://r.jina.ai/http://www.fundsexplorer.com.br/funds/${ticker}`,
+        ]
       : (cls === 'ETF EUA' || cls === 'ETF_EUA')
-        ? `https://r.jina.ai/http://investidor10.com.br/etfs-global/${lower}/`
-        : `https://r.jina.ai/http://investidor10.com.br/acoes/${lower}/`;
+        ? [
+            `https://r.jina.ai/http://investidor10.com.br/etfs-global/${lower}/`,
+            `https://r.jina.ai/http://statusinvest.com.br/etf/eua/${lower}`,
+          ]
+        : [
+            `https://r.jina.ai/http://investidor10.com.br/acoes/${lower}/`,
+            `https://r.jina.ai/http://statusinvest.com.br/acoes/${lower}`,
+          ];
 
-    const txt = await fetchText(src);
+    let priceBrl = null;
+    let pvp = null;
 
-    const pvp = matchNum(txt, [
-      /P\/VP\s*([0-9\.]+,[0-9]+)/i,
-      /P\/VP[^0-9]*([0-9\.]+,[0-9]+)/i,
-    ]);
+    for (const src of sources) {
+      try {
+        const txt = await fetchText(src);
 
-    let priceBrl = matchNum(txt, [
-      /Cotação\s*R\$\s*([0-9\.]+,[0-9]+)/i,
-      /Valor atual\s*R\$\s*([0-9\.]+,[0-9]+)/i,
-      /Preço\s*R\$\s*([0-9\.]+,[0-9]+)/i,
-    ]);
+        if (!Number.isFinite(pvp)) {
+          pvp = matchNum(txt, [
+            /P\/VP\s*([0-9\.]+,[0-9]+)/i,
+            /P\/VP[^0-9]*([0-9\.]+,[0-9]+)/i,
+          ]);
+        }
 
-    if (!Number.isFinite(priceBrl)) {
-      const usd = matchNum(txt, [
-        /Cotação\s*US\$\s*([0-9\.]+,[0-9]+)/i,
-        /Valor atual\s*US\$\s*([0-9\.]+,[0-9]+)/i,
-      ]);
-      if (Number.isFinite(usd)) priceBrl = usd * usdBrl;
+        if (!Number.isFinite(priceBrl)) {
+          priceBrl = matchNum(txt, [
+            /Cotação\s*R\$\s*([0-9\.]+,[0-9]+)/i,
+            /Valor atual\s*R\$\s*([0-9\.]+,[0-9]+)/i,
+            /Preço\s*R\$\s*([0-9\.]+,[0-9]+)/i,
+          ]);
+
+          if (!Number.isFinite(priceBrl)) {
+            const usd = matchNum(txt, [
+              /Cotação\s*US\$\s*([0-9\.]+,[0-9]+)/i,
+              /Valor atual\s*US\$\s*([0-9\.]+,[0-9]+)/i,
+            ]);
+            if (Number.isFinite(usd)) priceBrl = usd * usdBrl;
+          }
+        }
+
+        if (Number.isFinite(priceBrl) && Number.isFinite(pvp)) break;
+      } catch {
+        // tenta próxima fonte
+      }
     }
 
     return res.json({ ok:true, ticker, cls, priceBrl: Number.isFinite(priceBrl) ? priceBrl : null, metric: Number.isFinite(pvp) ? pvp : null, metricType:'pvp', usdBrl });
