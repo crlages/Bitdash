@@ -92,7 +92,7 @@ app.post('/auth/register', async (req, res) => {
 
   const code = genCode();
   db.prepare('UPDATE verify_codes SET used = 1 WHERE email = ? AND used = 0').run(email);
-  db.prepare('INSERT INTO verify_codes (email, code, expires_at, used) VALUES (?, ?, datetime("now", ?), 0)')
+  db.prepare("INSERT INTO verify_codes (email, code, expires_at, used) VALUES (?, ?, datetime('now', ?), 0)")
     .run(email, code, `+${CODE_TTL_MIN} minutes`);
 
   // Modo local de teste: devolve código na resposta

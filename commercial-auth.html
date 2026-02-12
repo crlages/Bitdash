@@ -9,17 +9,14 @@ button{background:#1b2d5e;color:#fff;border:1px solid #3d58a6;border-radius:9px;
 </style></head><body>
 <h1 style="margin-top:0">Cadastro/Login Premium</h1>
 <div class="card">
-  <div class="muted">Fluxo local de teste: cadastro com e-mail + senha, verificação por contra senha (código de 6 dígitos).</div>
+  <div class="muted">Etapa 1: cadastre e gere sua contra senha. Etapa 2 será em tela separada.</div>
   <input id="email" placeholder="E-mail"/>
   <input id="pass" type="password" placeholder="Senha (mínimo 6 caracteres)"/>
-  <input id="code" placeholder="Contra senha (código de verificação)"/>
-
   <label class="row"><input id="paid" type="checkbox" style="width:auto"/> Confirmo pagamento (simulação para teste)</label>
 
   <div class="row" style="margin-top:10px;">
-    <button id="register">1) Cadastrar e gerar código</button>
-    <button id="verify">2) Confirmar código</button>
-    <button id="login">3) Entrar</button>
+    <button id="register">1) Cadastrar e gerar contra senha</button>
+    <button id="login">Entrar</button>
     <button onclick="location.href='commercial-dashboard.html'">Voltar</button>
   </div>
   <div id="status" class="muted" style="margin-top:10px;"></div>
@@ -29,7 +26,6 @@ const API = `http://${location.hostname}:3001`;
 const statusEl=document.getElementById('status');
 const emailEl=document.getElementById('email');
 const passEl=document.getElementById('pass');
-const codeEl=document.getElementById('code');
 const paidEl=document.getElementById('paid');
 
 async function api(path, method='GET', body){
@@ -51,18 +47,9 @@ document.getElementById('register').onclick = async ()=>{
   if(!paidEl.checked){ statusEl.textContent='Marque confirmação de pagamento (simulação).'; return; }
   try{
     const j = await api('/auth/register','POST',{email,password});
-    statusEl.textContent = `Cadastro iniciado. Código dev: ${j.devCode} (copie e confirme no campo "Contra senha").`;
+    // Local dev: código aparece aqui para teste
+    location.href = `commercial-verify.html?email=${encodeURIComponent(email)}&devCode=${encodeURIComponent(j.devCode||'')}`;
   }catch(e){ statusEl.textContent = `Erro no cadastro: ${e.message}`; }
-};
-
-document.getElementById('verify').onclick = async ()=>{
-  const email=emailEl.value.trim().toLowerCase();
-  const code=codeEl.value.trim();
-  if(!email||!code){ statusEl.textContent='Informe e-mail e contra senha.'; return; }
-  try{
-    await api('/auth/verify','POST',{email,code});
-    statusEl.textContent = 'E-mail confirmado com sucesso. Agora clique em Entrar.';
-  }catch(e){ statusEl.textContent = `Erro na confirmação: ${e.message}`; }
 };
 
 document.getElementById('login').onclick = async ()=>{
