@@ -44,6 +44,11 @@
     .seg-green { background:#26c76f; width:33.3%; display:flex; align-items:center; justify-content:center; color:#062613; font-weight:700; font-size:.78rem; }
     .seg-yellow { background:#ffcc33; width:33.3%; display:flex; align-items:center; justify-content:center; color:#3d2d00; font-weight:700; font-size:.78rem; }
     .seg-red { background:#ff4d4f; width:33.4%; display:flex; align-items:center; justify-content:center; color:#3b0405; font-weight:700; font-size:.78rem; }
+    .decision { padding: 3px 8px; border-radius: 999px; font-weight: 700; font-size: .78rem; display: inline-block; }
+    .d-buy { background: rgba(38,199,111,.18); color:#7af3b2; }
+    .d-wait { background: rgba(255,204,51,.2); color:#ffd86a; }
+    .d-avoid { background: rgba(255,77,79,.2); color:#ff9a9b; }
+    .pvpin { width: 90px; padding: 4px 6px; border-radius: 8px; border:1px solid #30427a; background:#0e1733; color:#fff; }
     .kpi { font-size: 1.5rem; font-weight: 700; margin-top: 8px; }
     .small { font-size: .92rem; }
     table { width: 100%; border-collapse: collapse; font-size: .92rem; }
@@ -194,6 +199,15 @@
   </div>
 
   <div class="card" style="margin-top:16px;">
+    <h3>Painel de decisão instantânea (sem cálculo manual)</h3>
+    <div class="small muted">Preencha apenas o P/VP atual de cada FII. O dashboard responde sozinho: COMPRAR FORTE, COMPRAR NORMAL ou EVITAR.</div>
+    <table style="margin-top:8px;">
+      <thead><tr><th>FII</th><th>P/VP atual</th><th>Decisão</th><th>Motivo</th></tr></thead>
+      <tbody id="fiiDecisionBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
     <h3>Base de valores informados</h3>
     <table>
       <thead><tr><th>Conta/Classe</th><th>Valor</th><th>%</th></tr></thead>
@@ -231,6 +245,47 @@
       }
     });
 
+    const fiiRules = {
+      IRIM11: { g:0.90, y:1.00, why:'Papel/high yield com desconto ajuda retorno do reinvestimento.' },
+      RZTR11: { g:0.90, y:1.00, why:'Agro/FII específico; comprar com margem melhora segurança.' },
+      KNCA11: { g:0.90, y:1.00, why:'Papel; preço abaixo do patrimonial tende a melhorar ponto de entrada.' },
+      BRCO11: { g:0.95, y:1.05, why:'Tijolo logístico; desconto protege contra oscilações.' },
+      HGLG11: { g:0.95, y:1.05, why:'Tijolo logístico de qualidade; preço importa na renda futura.' },
+      VILG11: { g:0.95, y:1.05, why:'Tijolo logístico; prefira acumular com desconto.' },
+      XPLG11: { g:0.95, y:1.05, why:'Tijolo logístico; faixa verde melhora relação risco/retorno.' },
+      BTLG11: { g:0.95, y:1.05, why:'Logística; disciplina de preço aumenta eficiência do aporte.' },
+      HGRU11: { g:0.95, y:1.05, why:'Renda urbana; evitar pagar prêmio muito alto.' },
+      HGBS11: { g:0.90, y:1.00, why:'Shopping; margem de segurança maior é desejável.' },
+      VISC11: { g:0.90, y:1.00, why:'Shopping; comprar barato aumenta potencial de renda futura.' },
+      KNRI11: { g:0.95, y:1.05, why:'Híbrido tijolo; priorize verde para melhorar o yield de entrada.' },
+      KDIF11: { g:0.90, y:1.00, why:'Infra/papel; desconto reduz risco de entrada.' },
+      CPTS11: { g:0.90, y:1.00, why:'Papel/estruturado; disciplina de preço é essencial.' },
+      MXRF11: { g:0.90, y:1.00, why:'Papel/híbrido; faixa verde tende a ser melhor ponto de aporte.' },
+    };
+
+    const tbody = document.getElementById('fiiDecisionBody');
+    Object.entries(fiiRules).forEach(([ticker, rule]) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${ticker}</strong></td>
+        <td><input class="pvpin" type="number" step="0.01" placeholder="ex: 0.93" id="pv_${ticker}"></td>
+        <td id="dec_${ticker}"><span class="decision d-wait">AGUARDANDO P/VP</span></td>
+        <td id="why_${ticker}" class="small muted">${rule.why}</td>
+      `;
+      tbody.appendChild(tr);
+      const input = tr.querySelector('input');
+      input.addEventListener('input', () => {
+        const v = Number(input.value);
+        const dec = document.getElementById(`dec_${ticker}`);
+        if (!input.value) {
+          dec.innerHTML = '<span class="decision d-wait">AGUARDANDO P/VP</span>';
+          return;
+        }
+        if (v <= rule.g) dec.innerHTML = '<span class="decision d-buy">🟢 COMPRAR FORTE</span>';
+        else if (v <= rule.y) dec.innerHTML = '<span class="decision d-wait">🟡 COMPRAR NORMAL</span>';
+        else dec.innerHTML = '<span class="decision d-avoid">🔴 EVITAR AGORA</span>';
+      });
+    });
 
   </script>
 </body>
