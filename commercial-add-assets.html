@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Adicionar Ativos</title>
+  <style>
+    body{margin:0;background:#0b1020;color:#e8edff;font-family:Inter,Segoe UI,Arial;padding:20px}
+    .card{background:#121a33;border:1px solid #2b3d72;border-radius:14px;padding:14px}
+    textarea{width:100%;min-height:210px;background:#0f1731;color:#fff;border:1px solid #334a87;border-radius:10px;padding:10px;font-family:Consolas,monospace}
+    button{background:#1b2d5e;color:#fff;border:1px solid #3d58a6;border-radius:9px;padding:8px 12px;cursor:pointer}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.muted{color:#9aa7d8}
+  </style>
+</head>
+<body>
+  <h1 style="margin-top:0">Adicionar novos ativos</h1>
+  <div class="muted">Cole em texto livre. Ex.: "MXRF11 120 PETR4 20 IVV 3"</div>
+  <div class="card" style="margin-top:12px;">
+    <textarea id="raw"></textarea>
+    <div class="row" style="margin-top:10px;">
+      <button id="processBtn">Processar e voltar ao Dashboard</button>
+      <button onclick="location.href='commercial-dashboard.html'">Voltar sem salvar</button>
+      <span id="status" class="muted"></span>
+    </div>
+  </div>
+
+<script>
+function cls(t){ if(['IVV','SCHD'].includes(t)) return 'ETF EUA'; return t.endsWith('11')&&t.length>=6?'FII':'AÇÃO'; }
+function parse(text){
+  const up=text.toUpperCase().replace(/[\n\t;,]+/g,' ');
+  const re=/\b([A-Z]{2,6}\d{0,2})\b\s+(\d{1,7})\b/g;
+  const map=new Map(); let m;
+  while((m=re.exec(up))!==null){ const t=m[1],q=Number(m[2]); if(!q) continue; map.set(t,(map.get(t)||0)+q); }
+  return [...map.entries()].map(([ticker,qty])=>({ticker,qty,cls:cls(ticker)}));
+}
+
+document.getElementById('processBtn').onclick=()=>{
+  const items=parse(document.getElementById('raw').value||'');
+  if(!items.length){document.getElementById('status').textContent='Nada reconhecido.'; return;}
+  sessionStorage.setItem('inboundPortfolio',JSON.stringify(items));
+  location.href='commercial-dashboard.html';
+};
+</script>
+</body>
+</html>

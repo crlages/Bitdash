@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>iResolve Invest - Dashboard</title>
+  <style>
+    :root{--bg:#0b1020;--card:#121a33;--line:#283b72;--txt:#e8edff;--muted:#9aa7d8;--ok:#2ecc71;--warn:#f1c40f;--bad:#ff5f6d}
+    *{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,#0a1020,#0d1530);color:var(--txt);font-family:Inter,Segoe UI,Arial;padding:20px}
+    .top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:14px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    button{background:#1b2d5e;color:#fff;border:1px solid #3d58a6;border-radius:9px;padding:8px 12px;cursor:pointer}
+    table{width:100%;border-collapse:collapse} th,td{padding:8px;border-bottom:1px solid #243564;text-align:left} th{color:var(--muted)}
+    .pill{padding:3px 8px;border-radius:999px;font-size:.78rem;font-weight:700}
+    .ok{background:rgba(46,204,113,.16);color:#8ef0b7}.warn{background:rgba(241,196,15,.2);color:#ffd96a}.bad{background:rgba(255,95,109,.2);color:#ffb3ba}
+    .muted{color:var(--muted)} .hidden{display:none}
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <h1 style="margin:0">Dashboard</h1>
+      <div class="muted">Versão comercial (amostra grátis + premium)</div>
+    </div>
+    <div class="row">
+      <button onclick="location.href='commercial-add-assets.html'">+ Adicionar ativos</button>
+      <button onclick="location.href='commercial-auth.html'" id="authBtn">Cadastro/Login Premium</button>
+      <button id="saveBtn" class="hidden">Salvar carteira (Premium)</button>
+      <button id="logoutBtn" class="hidden">Sair</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Resumo</h3>
+    <div id="mode" class="muted">Modo grátis: se fechar/ sair, os dados não permanecem.</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Ativos monitorados</h3>
+    <table>
+      <thead><tr><th>Ativo</th><th>Classe</th><th>Qtd</th><th>Múltiplo</th><th>Sinal</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="row" style="margin-top:10px;">
+      <button id="refreshBtn">Atualizar múltiplos (Investidor10)</button>
+      <span id="status" class="muted">Pronto.</span>
+    </div>
+  </div>
+
+<script>
+const FREE_KEY='freePortfolioDraft';
+const PREMIUM_SESSION='premiumSession';
+const USERS='premiumUsers';
+
+const sample=[
+  {ticker:'MXRF11',qty:100,cls:'FII'},
+  {ticker:'HGLG11',qty:50,cls:'FII'},
+  {ticker:'PETR4',qty:20,cls:'AÇÃO'},
+  {ticker:'WEGE3',qty:5,cls:'AÇÃO'},
+];
+
+const rules={
+  fii:{g:0.90,y:1.00},
+  stock:{g:10,y:16},
+  WEGE3:{g:25,y:35}, PETR4:{g:5,y:8}
+};
+
+function getSession(){try{return JSON.parse(localStorage.getItem(PREMIUM_SESSION)||'null')}catch{return null}}
+function getPortfolio(){
+  const sess=getSession();
+  if(sess?.email){
+    const users=JSON.parse(localStorage.getItem(USERS)||'{}');
+    return users[sess.email]?.portfolio?.length?users[sess.email].portfolio:sample;
+  }
+  try{const d=JSON.parse(sessionStorage.getItem(FREE_KEY)||'null'); return d?.length?d:sample;}catch{return sample;}
+}
+function setFreePortfolio(p){sessionStorage.setItem(FREE_KEY,JSON.stringify(p));}
+
+function classify(t){return t.endsWith('11') && t.length>=6? 'FII':'AÇÃO'}
+function signal(t,v,cls){
+  if(v==null) return ['AGUARDANDO','warn'];
+  const r=rules[t] || (cls==='FII'?rules.fii:rules.stock);
+  if(v<=r.g) return ['COMPRAR FORTE','ok'];
+  if(v<=r.y) return ['COMPRAR NORMAL','warn'];
+  return ['EVITAR','bad'];
+}
+
+async function fetchMetric(a){
+  const t=a.ticker.toLowerCase();
+  const url = a.cls==='FII'
+    ? `https://r.jina.ai/http://investidor10.com.br/fiis/${t}/`
+    : `https://r.jina.ai/http://investidor10.com.br/acoes/${t}/`;
+  const res=await fetch(url); if(!res.ok) throw new Error('fetch fail');
+  const txt=await res.text();
+  const rgx = a.cls==='FII'
+    ? [/P\/VP\s*([0-9]+,[0-9]+)/i,/P\/VP[^0-9]*([0-9]+,[0-9]+)/i]
+    : [/P\/L\s*([0-9]+,[0-9]+)/i,/P\/L[^0-9]*([0-9]+,[0-9]+)/i];
+  let m=null; for(const r of rgx){m=txt.match(r); if(m) break;}
+  if(!m) throw new Error('metric nf');
+  return Number(m[1].replace(',','.'));
+}
+
+let portfolio=getPortfolio();
+let metrics={};
+
+function render(){
+  const sess=getSession();
+  document.getElementById('saveBtn').classList.toggle('hidden',!sess?.email);
+  document.getElementById('logoutBtn').classList.toggle('hidden',!sess?.email);
+  document.getElementById('authBtn').textContent=sess?.email?`Premium: ${sess.email}`:'Cadastro/Login Premium';
+  document.getElementById('mode').textContent=sess?.email
+    ? 'Modo premium: você pode salvar e recuperar em outro dia/dispositivo.'
+    : 'Modo grátis: se sair da página, perde os dados (amostra).';
+
+  const tb=document.getElementById('rows'); tb.innerHTML='';
+  portfolio.forEach(a=>{
+    const v=metrics[a.ticker];
+    const [s,c]=signal(a.ticker,v,a.cls);
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${a.cls}</td><td>${a.qty}</td><td>${v!=null?v.toFixed(2):'-'}</td><td><span class='pill ${c}'>${s}</span></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+async function refresh(){
+  document.getElementById('status').textContent='Atualizando...';
+  let ok=0,fail=0;
+  for(const a of portfolio){
+    try{metrics[a.ticker]=await fetchMetric(a); ok++;}
+    catch{fail++;}
+  }
+  document.getElementById('status').textContent=`Atualizado: ${ok} ok, ${fail} falhas.`;
+  render();
+}
+
+document.getElementById('refreshBtn').onclick=refresh;
+document.getElementById('saveBtn').onclick=()=>{
+  const sess=getSession(); if(!sess?.email) return;
+  const users=JSON.parse(localStorage.getItem(USERS)||'{}');
+  users[sess.email]=users[sess.email]||{};
+  users[sess.email].portfolio=portfolio;
+  localStorage.setItem(USERS,JSON.stringify(users));
+  alert('Carteira salva no premium.');
+};
+document.getElementById('logoutBtn').onclick=()=>{localStorage.removeItem(PREMIUM_SESSION); location.reload();};
+
+// ingest from add page (free sample in session)
+try{
+  const inbound=JSON.parse(sessionStorage.getItem('inboundPortfolio')||'null');
+  if(inbound?.length){portfolio=inbound; setFreePortfolio(inbound); sessionStorage.removeItem('inboundPortfolio');}
+}catch{}
+
+render();
+</script>
+</body>
+</html>

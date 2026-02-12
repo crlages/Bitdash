@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Premium</title>
+<style>
+body{margin:0;background:#0b1020;color:#e8edff;font-family:Inter,Segoe UI,Arial;padding:20px}
+.card{background:#121a33;border:1px solid #2b3d72;border-radius:14px;padding:14px;max-width:520px}
+input{width:100%;padding:9px;margin:6px 0;border-radius:9px;border:1px solid #3a5194;background:#0f1731;color:#fff}
+button{background:#1b2d5e;color:#fff;border:1px solid #3d58a6;border-radius:9px;padding:8px 12px;cursor:pointer}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.muted{color:#9aa7d8}
+</style></head><body>
+<h1 style="margin-top:0">Cadastro/Login Premium</h1>
+<div class="card">
+  <div class="muted">Demo comercial: acesso premium só após confirmação de pagamento.</div>
+  <input id="email" placeholder="E-mail"/>
+  <input id="pass" type="password" placeholder="Senha"/>
+  <label class="row"><input id="paid" type="checkbox" style="width:auto"/> Confirmo que o pagamento foi realizado</label>
+  <div class="row" style="margin-top:10px;">
+    <button id="register">Cadastrar + liberar premium</button>
+    <button id="login">Entrar</button>
+    <button onclick="location.href='commercial-dashboard.html'">Voltar</button>
+  </div>
+  <div id="status" class="muted" style="margin-top:10px;"></div>
+</div>
+<script>
+const USERS='premiumUsers', SESSION='premiumSession';
+function getUsers(){return JSON.parse(localStorage.getItem(USERS)||'{}')}
+function setUsers(u){localStorage.setItem(USERS,JSON.stringify(u))}
+
+const emailEl=document.getElementById('email');
+const passEl=document.getElementById('pass');
+const paidEl=document.getElementById('paid');
+const statusEl=document.getElementById('status');
+
+document.getElementById('register').onclick=()=>{
+  const email=emailEl.value.trim().toLowerCase(), pass=passEl.value;
+  if(!email||!pass) return statusEl.textContent='Preencha e-mail e senha.';
+  if(!paidEl.checked) return statusEl.textContent='Pagamento não confirmado. Premium bloqueado.';
+  const u=getUsers();
+  u[email]=u[email]||{}; u[email].pass=pass; u[email].premium=true; u[email].portfolio=u[email].portfolio||[];
+  setUsers(u); localStorage.setItem(SESSION,JSON.stringify({email}));
+  statusEl.textContent='Premium liberado. Redirecionando...'; setTimeout(()=>location.href='commercial-dashboard.html',700);
+};
+
+document.getElementById('login').onclick=()=>{
+  const email=emailEl.value.trim().toLowerCase(), pass=passEl.value;
+  const u=getUsers();
+  if(!u[email]||u[email].pass!==pass) return statusEl.textContent='Credenciais inválidas.';
+  if(!u[email].premium) return statusEl.textContent='Conta sem premium ativo.';
+  localStorage.setItem(SESSION,JSON.stringify({email}));
+  statusEl.textContent='Login OK. Redirecionando...'; setTimeout(()=>location.href='commercial-dashboard.html',700);
+};
+</script>
+</body></html>
