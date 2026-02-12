@@ -58,7 +58,7 @@
   <div class="topbar">
     <div>
       <h1>Dashboard Financeiro</h1>
-      <div class="muted">Snapshot baseado nos valores enviados por você.</div>
+      <div class="muted">Snapshot da carteira exemplo (2 FIIs + 2 ações), atualizado pelos ativos cadastrados.</div>
     </div>
     <div class="actions">
       <button onclick="location.href='commercial-add-assets.html'">+ Adicionar ativos</button>
@@ -70,30 +70,30 @@
 
   <div class="grid cards">
     <div class="card">
-      <div class="muted">Patrimônio Total (estimado)</div>
-      <div class="kpi">R$ 367.655,08</div>
+      <div class="muted">Patrimônio da carteira (estimado)</div>
+      <div class="kpi" id="kTotal">R$ 0,00</div>
     </div>
     <div class="card">
-      <div class="muted">Liquidez imediata (Nubank + 99Pay + MP)</div>
-      <div class="kpi">R$ 49.650,31</div>
-      <div class="muted">13,5% do total</div>
+      <div class="muted">Valor em FIIs (estimado)</div>
+      <div class="kpi" id="kFiis">R$ 0,00</div>
+      <div class="muted" id="kFiisPct">0% do total</div>
     </div>
     <div class="card">
-      <div class="muted">Exposição Cripto (Trezor + Binance + USDT)</div>
-      <div class="kpi">R$ 64.883,00</div>
-      <div class="muted">17,6% do total</div>
+      <div class="muted">Valor em ações (estimado)</div>
+      <div class="kpi" id="kAcoes">R$ 0,00</div>
+      <div class="muted" id="kAcoesPct">0% do total</div>
     </div>
     <div class="card">
-      <div class="muted">Fundos + Ações (Brasil)</div>
-      <div class="kpi">R$ 225.864,77</div>
-      <div class="muted">61,4% do total</div>
+      <div class="muted">Ativos monitorados</div>
+      <div class="kpi" id="kCount">0</div>
+      <div class="muted">FIIs + Ações na carteira</div>
     </div>
   </div>
 
   <div class="grid two" style="margin-top:14px;">
     <div class="card">
       <h3>Alocação por bloco (barras horizontais)</h3>
-      <canvas id="allocChart" height="220"></canvas>
+      <div style="max-width:520px;"><canvas id="allocChart" height="150"></canvas></div>
       <div class="muted" style="margin-top:8px;text-align:center">Visual em barras para leitura mais clara</div>
     </div>
     <div class="card">
@@ -240,6 +240,7 @@ function render(){
     tr2.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${a.cls}</td><td>${v!=null?v.toFixed(2):'-'}</td><td><span class="decision ${cls}">${txt}</span></td><td>${reason(a)}</td>`;
     dec.appendChild(tr2);
   });
+  updateSummary();
 }
 
 async function refresh(){
@@ -254,21 +255,61 @@ async function refresh(){
 }
 
 // chart
-new Chart(document.getElementById('allocChart'), {
-  type:'bar',
-  data:{
-    labels:['Fundos','Ações BR','Avenue','Cripto total','Liquidez imediata'],
-    datasets:[{label:'R$', data:[183969.08,41895.69,27257,64883,49650.31], backgroundColor:['#6ea8fe','#6dd3a0','#f6c15a','#c48cff','#8bd1ff']}]
-  },
-  options:{
-    indexAxis:'y',
-    scales:{
-      x:{ticks:{color:'#dce5ff'}, grid:{color:'rgba(120,150,220,.28)'}},
-      y:{ticks:{color:'#dce5ff'}, grid:{color:'rgba(120,150,220,.18)'}}
-    },
-    plugins:{legend:{labels:{color:'#e8ecff'}}}
+let allocChart;
+
+function brl(v){ return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
+
+const priceRef = {
+  MXRF11: 10.3, HGLG11: 158.0, PETR4: 37.8, WEGE3: 53.0,
+  VISC11: 108.0, KNRI11: 151.0, BBAS3: 31.0, VALE3: 55.0
+};
+
+function estimateValue(asset){
+  const ref = priceRef[asset.ticker] || 20;
+  return asset.qty * ref;
+}
+
+function updateSummary(){
+  let total=0, fiis=0, acoes=0;
+  const byTicker = [];
+  portfolio.forEach(a=>{
+    const val = estimateValue(a);
+    total += val;
+    if(a.cls==='FII') fiis += val; else acoes += val;
+    byTicker.push({label:a.ticker, value:val});
+  });
+
+  document.getElementById('kTotal').textContent = brl(total);
+  document.getElementById('kFiis').textContent = brl(fiis);
+  document.getElementById('kAcoes').textContent = brl(acoes);
+  document.getElementById('kCount').textContent = String(portfolio.length);
+  document.getElementById('kFiisPct').textContent = total?`${(fiis*100/total).toFixed(1).replace('.',',')}% do total`:'0% do total';
+  document.getElementById('kAcoesPct').textContent = total?`${(acoes*100/total).toFixed(1).replace('.',',')}% do total`:'0% do total';
+
+  byTicker.sort((a,b)=>b.value-a.value);
+  const labels = byTicker.map(x=>x.label);
+  const data = byTicker.map(x=>x.value);
+
+  if (!allocChart){
+    allocChart = new Chart(document.getElementById('allocChart'), {
+      type:'bar',
+      data:{labels, datasets:[{label:'R$', data, backgroundColor:['#6ea8fe','#6dd3a0','#f6c15a','#c48cff','#8bd1ff','#f48fb1']} ]},
+      options:{
+        indexAxis:'y',
+        maintainAspectRatio:false,
+        scales:{
+          x:{ticks:{color:'#dce5ff'}, grid:{color:'rgba(120,150,220,.28)'}},
+          y:{ticks:{color:'#dce5ff'}, grid:{color:'rgba(120,150,220,.18)'}}
+        },
+        plugins:{legend:{labels:{color:'#e8ecff'}}}
+      }
+    });
+  } else {
+    allocChart.data.labels = labels;
+    allocChart.data.datasets[0].data = data;
+    allocChart.update();
   }
-});
+}
 
 // actions
 document.getElementById('refreshBtn').onclick = refresh;
