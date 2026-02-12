@@ -214,6 +214,10 @@ async function loadPortfolio(){
 
 function normalizeTicker(t){ return t==='BITCOIN' ? 'BTC' : t; }
 function classify(t){ t=normalizeTicker(t); if (CRYPTO_SET.has(t)) return 'CRIPTO'; if (['IVV','SCHD'].includes(t)) return 'ETF EUA'; return t.endsWith('11') ? 'FII' : 'AÇÃO'; }
+function canonicalClass(asset){
+  // Sempre recalcula pela regra do ticker para evitar classe antiga errada salva em sessões passadas
+  return classify(asset.ticker);
+}
 
 function signal(asset, v){
   if (v == null) return ['AGUARDANDO', 'd-hold'];
@@ -253,7 +257,7 @@ async function fetchUsdBrl(){
 }
 
 async function fetchAssetData(asset){
-  const cls = encodeURIComponent(asset.cls || classify(asset.ticker));
+  const cls = encodeURIComponent(canonicalClass(asset));
   const t = encodeURIComponent(asset.ticker);
   const j = await api(`/market/asset?ticker=${t}&cls=${cls}`);
   if (Number.isFinite(j.usdBrl)) usdBrl = j.usdBrl;
@@ -416,7 +420,10 @@ window.addEventListener('resize', () => {
 });
 
 (async function init(){
-  portfolio = (await loadPortfolio()).map(x=>({ ...x, ticker: normalizeTicker(x.ticker), cls: x.cls || classify(x.ticker) }));
+  portfolio = (await loadPortfolio()).map(x=>{
+    const ticker = normalizeTicker(x.ticker);
+    return { ...x, ticker, cls: classify(ticker) };
+  });
   render();
   refresh();
 })();
