@@ -317,7 +317,7 @@ function updateSummary(){
   const data = byTicker.map(x=>x.value);
   const c = document.getElementById('allocChart');
   const wrap = document.getElementById('chartWrap');
-  c.width = Math.max(900, wrap.clientWidth - 18);
+  c.width = Math.max(320, wrap.clientWidth - 18);
   c.height = Math.max(260, labels.length * 34);
 
   if (!allocChart){
@@ -355,6 +355,11 @@ document.getElementById('saveBtn').onclick = ()=>{
 document.getElementById('logoutBtn').onclick = ()=>{ localStorage.removeItem(SESSION); location.reload(); };
 
 portfolio = loadPortfolio().map(x=>({ ...x, ticker: normalizeTicker(x.ticker), cls: x.cls || classify(x.ticker) }));
+
+window.addEventListener('resize', () => {
+  updateSummary();
+});
+
 render();
 </script>
 </body>
