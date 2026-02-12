@@ -203,7 +203,7 @@
     <div class="small muted">Preencha apenas o P/VP atual de cada FII. O dashboard responde sozinho: COMPRAR FORTE, COMPRAR NORMAL ou EVITAR.</div>
     <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
       <button id="autoPvpBtn" style="padding:7px 12px; border-radius:8px; border:1px solid #3552a3; background:#1a2a57; color:#e8ecff; cursor:pointer;">Atualizar P/VP automático</button>
-      <span id="autoPvpStatus" class="small muted">Fonte: Status Invest (via proxy de leitura)</span>
+      <span id="autoPvpStatus" class="small muted">Fonte: Funds Explorer (via proxy de leitura)</span>
     </div>
     <table style="margin-top:8px;">
       <thead><tr><th>FII</th><th>P/VP atual</th><th>Decisão</th><th>Motivo</th></tr></thead>
@@ -270,7 +270,7 @@
     const tbody = document.getElementById('fiiDecisionBody');
 
     async function fetchPvpFromWeb(ticker) {
-      const url = `https://r.jina.ai/http://statusinvest.com.br/fundos-imobiliarios/${ticker.toLowerCase()}`;
+      const url = `https://r.jina.ai/http://www.fundsexplorer.com.br/funds/${ticker}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error('falha no fetch');
       const txt = await res.text();
