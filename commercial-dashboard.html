@@ -174,6 +174,7 @@ const rules = {
 let portfolio = DEFAULT_PORT.slice();
 let metrics = {};
 let marketPrices = {};
+try { marketPrices = JSON.parse(localStorage.getItem('bitdash_market_prices')||'{}') || {}; } catch {}
 let usdBrl = 5.2;
 let currentUser = null;
 
@@ -326,12 +327,37 @@ async function refresh(){
 
   await fetchUsdBrl();
 
-  await Promise.allSettled(portfolio.map(async (a)=>{
-    try { metrics[a.ticker] = await fetchPvp(a); ok++; }
-    catch { fail++; }
-    try { marketPrices[a.ticker] = await fetchLivePrice(a); pxOk++; }
-    catch { pxFail++; }
-  }));
+  // Atualização em sequência com retry curto para reduzir 429/timeouts
+  for (const a of portfolio) {
+    // métrica
+    let metricDone = false;
+    for (let i=0; i<2 && !metricDone; i++) {
+      try {
+        metrics[a.ticker] = await fetchPvp(a);
+        ok++; metricDone = true;
+      } catch (e) {
+        if (i===1) fail++;
+        else await new Promise(r=>setTimeout(r, 350));
+      }
+    }
+
+    // preço
+    let priceDone = false;
+    for (let i=0; i<2 && !priceDone; i++) {
+      try {
+        marketPrices[a.ticker] = await fetchLivePrice(a);
+        pxOk++; priceDone = true;
+      } catch (e) {
+        if (i===1) pxFail++;
+        else await new Promise(r=>setTimeout(r, 500));
+      }
+    }
+
+    render();
+  }
+
+  // cache local para evitar perder preço válido em refresh seguinte
+  try { localStorage.setItem('bitdash_market_prices', JSON.stringify(marketPrices)); } catch {}
 
   document.getElementById('status').textContent=`P/VP/24h: ${ok} ok, ${fail} falhas • Preços: ${pxOk} ok, ${pxFail} falhas (USD/BRL ${usdBrl.toFixed(2)}).`;
   btn.disabled = false;
@@ -345,7 +371,10 @@ function brl(v){ return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL
 
 const priceRef = {
   MXRF11: 10.3, HGLG11: 158.0, PETR4: 37.8, WEGE3: 53.0,
-  VISC11: 108.0, KNRI11: 151.0, BBAS3: 31.0, VALE3: 55.0
+  VISC11: 108.0, KNRI11: 151.0, BBAS3: 31.0, VALE3: 55.0,
+  IRIM11: 64.7, RZTR11: 96.8, KNCA11: 96.6, BRCO11: 117.9,
+  VILG11: 86.5, XPLG11: 101.2, BTLG11: 103.4, HGRU11: 120.0,
+  HGBS11: 188.0, CPTS11: 8.9, KDIF11: 100.5
 };
 const usdRef = {BTC:98000, ETH:3200, SOL:180, XRP:0.6, BNB:650, ADA:0.8, DOGE:0.12, LTC:90, USDT:1};
 
