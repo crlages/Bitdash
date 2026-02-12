@@ -89,11 +89,11 @@
 
   <div class="grid two" style="margin-top:16px;">
     <div class="card">
-      <h3>Alocação por bloco</h3>
+      <h3>Alocação por bloco (barras horizontais)</h3>
       <div style="max-width:260px; margin:0 auto;">
         <canvas id="allocChart" height="180"></canvas>
       </div>
-      <div class="small muted" style="text-align:center; margin-top:8px;">Pizza reduzida para leitura rápida</div>
+      <div class="small muted" style="text-align:center; margin-top:8px;">Visual em barras para leitura mais clara</div>
     </div>
     <div class="card">
       <h3>Leitura rápida</h3>
@@ -137,66 +137,7 @@
     </div>
   </div>
 
-  <div class="grid two" style="margin-top:16px;">
-    <div class="card">
-      <h3>Semáforo FIIs (Regra de Preço) — Horizontal</h3>
-      <div class="small muted">Sempre com as 3 cores visíveis (inclusive vermelho), para decisão rápida.</div>
-
-      <div class="semaforo-row">
-        <div class="semaforo-label">Tijolo: BRCO11, HGLG11, VILG11, XPLG11, BTLG11, HGRU11, KNRI11</div>
-        <div class="semaforo-track">
-          <div class="seg-green">🟢 ≤ 0,95</div>
-          <div class="seg-yellow">🟡 0,95–1,05</div>
-          <div class="seg-red">🔴 &gt; 1,05</div>
-        </div>
-      </div>
-
-      <div class="semaforo-row">
-        <div class="semaforo-label">Papel/High Yield: IRIM11, RZTR11, KNCA11, KDIF11, CPTS11, MXRF11</div>
-        <div class="semaforo-track">
-          <div class="seg-green">🟢 ≤ 0,90</div>
-          <div class="seg-yellow">🟡 0,90–1,00</div>
-          <div class="seg-red">🔴 &gt; 1,00</div>
-        </div>
-      </div>
-
-      <div class="semaforo-row">
-        <div class="semaforo-label">Shoppings: HGBS11, VISC11</div>
-        <div class="semaforo-track">
-          <div class="seg-green">🟢 ≤ 0,90</div>
-          <div class="seg-yellow">🟡 0,90–1,00</div>
-          <div class="seg-red">🔴 &gt; 1,00</div>
-        </div>
-      </div>
-    </div>
-    <div class="card">
-      <h3>O que comprar agora (regra objetiva)</h3>
-      <div class="card buy-box" style="margin:8px 0; padding:10px;">
-        <strong>🟢 COMPRAR FORTE</strong>
-        <div class="small">Quando P/VP estiver na faixa verde.</div>
-        <div class="small muted">Motivo: desconto + maior margem de segurança + melhor retorno esperado no reinvestimento.</div>
-      </div>
-      <div class="card wait-box" style="margin:8px 0; padding:10px;">
-        <strong>🟡 COMPRAR NORMAL</strong>
-        <div class="small">Quando estiver em faixa amarela.</div>
-        <div class="small muted">Motivo: preço justo, sem grande desconto.</div>
-      </div>
-      <div class="card dont-box" style="margin:8px 0; padding:10px;">
-        <strong>🔴 EVITAR AGORA</strong>
-        <div class="small">Quando passar da faixa vermelha.</div>
-        <div class="small muted">Motivo: ativo esticado; melhor preservar caixa para oportunidade.</div>
-      </div>
-
-      <table style="margin-top:8px;">
-        <thead><tr><th>Grupo</th><th>🟢 Verde</th><th>🟡 Amarela</th><th>🔴 Vermelha</th></tr></thead>
-        <tbody>
-          <tr><td>Tijolo (BRCO,HGLG,VILG,XPLG,BTLG,HGRU,KNRI)</td><td>≤0,95</td><td>0,95–1,05</td><td>>1,05</td></tr>
-          <tr><td>Papel/High Yield (IRIM,RZTR,KNCA,KDIF,CPTS,MXRF)</td><td>≤0,90</td><td>0,90–1,00</td><td>>1,00</td></tr>
-          <tr><td>Shopping (HGBS,VISC)</td><td>≤0,90</td><td>0,90–1,00</td><td>>1,00</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+  
 
   <div class="card" style="margin-top:16px;">
     <h3>Painel de decisão instantânea (sem cálculo manual)</h3>
@@ -208,6 +149,19 @@
     <table style="margin-top:8px;">
       <thead><tr><th>FII</th><th>P/VP atual</th><th>Decisão</th><th>Motivo</th></tr></thead>
       <tbody id="fiiDecisionBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h3>Painel de decisão automática — Ações BR + ETFs EUA</h3>
+    <div class="small muted">Mesma lógica objetiva: sem cálculo manual. Clique no botão e veja o sinal.</div>
+    <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+      <button id="autoPlBtn" style="padding:7px 12px; border-radius:8px; border:1px solid #3552a3; background:#1a2a57; color:#e8ecff; cursor:pointer;">Atualizar P/L automático</button>
+      <span id="autoPlStatus" class="small muted">Fonte: Status Invest/Fundamentus (via proxy de leitura)</span>
+    </div>
+    <table style="margin-top:8px;">
+      <thead><tr><th>Ativo</th><th>P/L atual</th><th>Decisão</th><th>Motivo</th></tr></thead>
+      <tbody id="stockDecisionBody"></tbody>
     </table>
   </div>
 
@@ -233,7 +187,7 @@
   <script>
     const ctx = document.getElementById('allocChart');
     new Chart(ctx, {
-      type: 'doughnut',
+      type: 'bar',
       data: {
         labels: ['Fundos', 'Ações BR', 'Avenue', 'Cripto total', 'Liquidez imediata'],
         datasets: [{
@@ -243,9 +197,9 @@
         }]
       },
       options: {
-        plugins: {
-          legend: { labels: { color: '#e8ecff' } }
-        }
+        indexAxis: 'y',
+        scales: { x: { ticks: { color: '#dce5ff' } }, y: { ticks: { color: '#dce5ff' } } },
+        plugins: { legend: { labels: { color: '#e8ecff' } } }
       }
     });
 
@@ -319,6 +273,82 @@
         else dec.innerHTML = '<span class="decision d-avoid">🔴 EVITAR AGORA</span>';
       });
     });
+
+
+    const stockRules = {
+      KLBN11:{g:10,y:16,why:'Comprar com múltiplo baixo aumenta margem de segurança.'},
+      TASA4:{g:10,y:16,why:'Cíclica; preço de entrada faz muita diferença.'},
+      ITSA3:{g:10,y:16,why:'Tese de dividendos favorece múltiplos mais comportados.'},
+      CMIG4:{g:10,y:16,why:'Utility: priorize previsibilidade e preço justo.'},
+      BBAS3:{g:8,y:12,why:'Banco grande: disciplina no múltiplo melhora retorno.'},
+      PETR4:{g:5,y:8,why:'Commodities exigem entrada com desconto.'},
+      WEGE3:{g:25,y:35,why:'Empresa premium aceita múltiplo maior; evitar euforia.'},
+      RAIZ4:{g:8,y:12,why:'Setor sensível a ciclo; preço importa.'},
+      PETZ3:{g:12,y:20,why:'Growth: exigir margem de segurança.'},
+      VALE3:{g:4,y:7,why:'Mineradora é cíclica; compre em faixas descontadas.'},
+      IVV:{g:18,y:25,why:'ETF amplo EUA: entrada por valuation reduz risco.'},
+      SCHD:{g:16,y:23,why:'ETF de dividendos: preço de entrada impacta yield futuro.'}
+    };
+
+    // fix typo-safe rule for WEGE3
+    stockRules.WEGE3 = { g:25, y:35, why:'Empresa premium aceita múltiplo maior; evitar euforia.' };
+
+    const stockBody = document.getElementById('stockDecisionBody');
+
+    async function fetchPLFromWeb(ticker) {
+      const urls = [
+        `https://r.jina.ai/http://statusinvest.com.br/acoes/${ticker.toLowerCase()}`,
+        `https://r.jina.ai/http://www.fundamentus.com.br/detalhes.php?papel=${ticker}`
+      ];
+      for (const url of urls) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const txt = await res.text();
+          let m = txt.match(/P\/L\s*([0-9]+,[0-9]+)/i) || txt.match(/P\/L[^0-9]*([0-9]+,[0-9]+)/i);
+          if (!m) m = txt.match(/P\/L\s*([0-9]+\.[0-9]+)/i);
+          if (m) return Number(String(m[1]).replace(',', '.'));
+        } catch (_) {}
+      }
+      throw new Error('P/L não encontrado');
+    }
+
+    Object.entries(stockRules).forEach(([ticker, rule]) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${ticker}</strong></td>
+        <td><input class="pvpin" type="number" step="0.01" placeholder="ex: 9.80" id="pl_${ticker}"></td>
+        <td id="pldec_${ticker}"><span class="decision d-wait">AGUARDANDO P/L</span></td>
+        <td class="small muted">${rule.why}</td>
+      `;
+      stockBody.appendChild(tr);
+      const input = tr.querySelector('input');
+      input.addEventListener('input', () => {
+        const v = Number(input.value);
+        const dec = document.getElementById(`pldec_${ticker}`);
+        if (!input.value) { dec.innerHTML = '<span class="decision d-wait">AGUARDANDO P/L</span>'; return; }
+        if (v <= rule.g) dec.innerHTML = '<span class="decision d-buy">🟢 COMPRAR FORTE</span>';
+        else if (v <= rule.y) dec.innerHTML = '<span class="decision d-wait">🟡 COMPRAR NORMAL</span>';
+        else dec.innerHTML = '<span class="decision d-avoid">🔴 EVITAR AGORA</span>';
+      });
+    });
+
+    document.getElementById('autoPlBtn').addEventListener('click', async () => {
+      const status = document.getElementById('autoPlStatus');
+      status.textContent = 'Atualizando P/L...';
+      let ok=0, fail=0;
+      for (const ticker of Object.keys(stockRules)) {
+        const input = document.getElementById(`pl_${ticker}`);
+        try {
+          const v = await fetchPLFromWeb(ticker);
+          input.value = v.toFixed(2);
+          input.dispatchEvent(new Event('input'));
+          ok++;
+        } catch (_) { fail++; }
+      }
+      status.textContent = `Atualização concluída: ${ok} ativos atualizados, ${fail} falhas.`;
+    });
+
 
   </script>
 </body>
