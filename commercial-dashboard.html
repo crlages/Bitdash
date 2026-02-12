@@ -3,27 +3,64 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>iResolve Invest - Dashboard</title>
+  <title>Dashboard Financeiro - Comercial</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    :root{--bg:#0b1020;--card:#121a33;--line:#283b72;--txt:#e8edff;--muted:#9aa7d8;--ok:#2ecc71;--warn:#f1c40f;--bad:#ff5f6d}
-    *{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,#0a1020,#0d1530);color:var(--txt);font-family:Inter,Segoe UI,Arial;padding:20px}
-    .top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:14px}
-    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    button{background:#1b2d5e;color:#fff;border:1px solid #3d58a6;border-radius:9px;padding:8px 12px;cursor:pointer}
-    table{width:100%;border-collapse:collapse} th,td{padding:8px;border-bottom:1px solid #243564;text-align:left} th{color:var(--muted)}
-    .pill{padding:3px 8px;border-radius:999px;font-size:.78rem;font-weight:700}
-    .ok{background:rgba(46,204,113,.16);color:#8ef0b7}.warn{background:rgba(241,196,15,.2);color:#ffd96a}.bad{background:rgba(255,95,109,.2);color:#ffb3ba}
-    .muted{color:var(--muted)} .hidden{display:none}
+    :root {
+      --bg: #0b1020;
+      --card: #121a33;
+      --text: #e8ecff;
+      --muted: #9aa7d8;
+      --ok: #35d07f;
+      --warn: #ffcc66;
+      --bad: #ff6b6b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #0b1020, #0d1328);
+      color: var(--text);
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+      padding: 16px;
+    }
+    .topbar { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+    .actions { display:flex; gap:8px; flex-wrap:wrap; }
+    button {
+      background:#1a2a57;
+      color:#e8ecff;
+      border:1px solid #3552a3;
+      border-radius:9px;
+      padding:8px 12px;
+      cursor:pointer;
+    }
+    h1,h2,h3{margin:0 0 8px}
+    .muted{color:var(--muted)}
+    .grid{display:grid;gap:14px}
+    .cards{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+    .two{grid-template-columns:repeat(auto-fit,minmax(360px,1fr))}
+    .card{background:var(--card);border:1px solid #1f2f63;border-radius:14px;padding:14px}
+    .kpi{font-size:2rem;font-weight:800}
+    .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:.82rem}
+    .ok{background:rgba(53,208,127,.16);color:#8ef0b7}
+    .warn{background:rgba(255,204,102,.2);color:#ffd97c}
+    .bad{background:rgba(255,107,107,.2);color:#ffb1b1}
+    table{width:100%;border-collapse:collapse;font-size:.94rem}
+    th,td{padding:8px;border-bottom:1px solid #243566;text-align:left}
+    th{color:var(--muted)}
+    .decision{padding:4px 10px;border-radius:999px;font-weight:700;font-size:.8rem;display:inline-block}
+    .d-buy{background:rgba(53,208,127,.2);color:#8ef0b7}
+    .d-hold{background:rgba(255,204,102,.2);color:#ffd97c}
+    .d-avoid{background:rgba(255,107,107,.2);color:#ffb1b1}
+    .hidden{display:none}
   </style>
 </head>
 <body>
-  <div class="top">
+  <div class="topbar">
     <div>
-      <h1 style="margin:0">Dashboard</h1>
-      <div class="muted">Versão comercial (amostra grátis + premium)</div>
+      <h1>Dashboard Financeiro</h1>
+      <div class="muted">Snapshot baseado nos valores enviados por você.</div>
     </div>
-    <div class="row">
+    <div class="actions">
       <button onclick="location.href='commercial-add-assets.html'">+ Adicionar ativos</button>
       <button onclick="location.href='commercial-auth.html'" id="authBtn">Cadastro/Login Premium</button>
       <button id="saveBtn" class="hidden">Salvar carteira (Premium)</button>
@@ -31,126 +68,221 @@
     </div>
   </div>
 
-  <div class="card">
-    <h3 style="margin-top:0">Resumo</h3>
-    <div id="mode" class="muted">Modo grátis: se fechar/ sair, os dados não permanecem.</div>
-  </div>
-
-  <div class="card">
-    <h3 style="margin-top:0">Ativos monitorados</h3>
-    <table>
-      <thead><tr><th>Ativo</th><th>Classe</th><th>Qtd</th><th>Múltiplo</th><th>Sinal</th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
-    <div class="row" style="margin-top:10px;">
-      <button id="refreshBtn">Atualizar múltiplos (Investidor10)</button>
-      <span id="status" class="muted">Pronto.</span>
+  <div class="grid cards">
+    <div class="card">
+      <div class="muted">Patrimônio Total (estimado)</div>
+      <div class="kpi">R$ 367.655,08</div>
+    </div>
+    <div class="card">
+      <div class="muted">Liquidez imediata (Nubank + 99Pay + MP)</div>
+      <div class="kpi">R$ 49.650,31</div>
+      <div class="muted">13,5% do total</div>
+    </div>
+    <div class="card">
+      <div class="muted">Exposição Cripto (Trezor + Binance + USDT)</div>
+      <div class="kpi">R$ 64.883,00</div>
+      <div class="muted">17,6% do total</div>
+    </div>
+    <div class="card">
+      <div class="muted">Fundos + Ações (Brasil)</div>
+      <div class="kpi">R$ 225.864,77</div>
+      <div class="muted">61,4% do total</div>
     </div>
   </div>
 
-<script>
-const FREE_KEY='freePortfolioDraft';
-const PREMIUM_SESSION='premiumSession';
-const USERS='premiumUsers';
+  <div class="grid two" style="margin-top:14px;">
+    <div class="card">
+      <h3>Alocação por bloco (barras horizontais)</h3>
+      <canvas id="allocChart" height="220"></canvas>
+      <div class="muted" style="margin-top:8px;text-align:center">Visual em barras para leitura mais clara</div>
+    </div>
+    <div class="card">
+      <h3>Leitura rápida</h3>
+      <div class="pill ok">Pontos fortes</div>
+      <ul>
+        <li>Boa diversificação em classes (caixa, fundos, ações, cripto, exterior).</li>
+        <li>Liquidez de curto prazo confortável (~13,5%).</li>
+        <li>Boa presença em FIIs e ações com foco em dividendos.</li>
+      </ul>
+      <div class="pill warn">Atenções</div>
+      <ul>
+        <li>Cripto em ~17,6% pode ser alta para perfil conservador/moderado.</li>
+        <li>Fundos em ~50% do patrimônio: revisar taxas e performance líquida.</li>
+        <li>Muitas posições pequenas em ações BR podem reduzir eficiência.</li>
+      </ul>
+    </div>
+  </div>
 
-const sample=[
-  {ticker:'MXRF11',qty:100,cls:'FII'},
-  {ticker:'HGLG11',qty:50,cls:'FII'},
-  {ticker:'PETR4',qty:20,cls:'AÇÃO'},
-  {ticker:'WEGE3',qty:5,cls:'AÇÃO'},
+  <div class="grid two" style="margin-top:14px;">
+    <div class="card">
+      <h3>Recomendações práticas (próximos 30 dias)</h3>
+      <ul>
+        <li>Definir sua meta de alocação (ex.: Caixa 10-15%, Cripto 8-12%, Exterior 15-25%).</li>
+        <li>Revisar fundos: manter os que batem benchmark com taxa aceitável.</li>
+        <li>Consolidar ações muito pequenas para simplificar carteira.</li>
+        <li>Mapear risco cambial: Avenue + cripto já dão proteção em dólar.</li>
+        <li>Criar regra de rebalanceamento (a cada 6 meses ou desvio >20%).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Inventário de posições (demo inicial)</h3>
+      <div class="muted">Começa com 2 FIIs e 2 ações para mostrar como funciona.</div>
+      <table style="margin-top:8px;">
+        <thead><tr><th>Ativo</th><th>Classe</th><th>Qtd</th></tr></thead>
+        <tbody id="invRows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px;">
+    <h3>Painel de decisão instantânea (P/VP)</h3>
+    <div class="muted">Botão automático busca múltiplos no Investidor10 e responde se deve comprar ou não.</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0;">
+      <button id="refreshBtn">Atualizar P/VP automático</button>
+      <span id="status" class="muted">Aguardando atualização.</span>
+      <span id="mode" class="muted"></span>
+    </div>
+    <table>
+      <thead><tr><th>Ativo</th><th>Classe</th><th>P/VP atual</th><th>Decisão</th><th>Motivo</th></tr></thead>
+      <tbody id="decisionRows"></tbody>
+    </table>
+  </div>
+
+<script>
+const USERS='premiumUsers', SESSION='premiumSession';
+const DEFAULT_PORT=[
+  {ticker:'MXRF11', qty:120, cls:'FII'},
+  {ticker:'HGLG11', qty:60, cls:'FII'},
+  {ticker:'PETR4', qty:30, cls:'AÇÃO'},
+  {ticker:'WEGE3', qty:12, cls:'AÇÃO'},
 ];
 
-const rules={
-  fii:{g:0.90,y:1.00},
-  stock:{g:10,y:16},
-  WEGE3:{g:25,y:35}, PETR4:{g:5,y:8}
+const rules = {
+  FII:{g:0.90,y:1.00},
+  ACAO:{g:1.10,y:1.80}, // usando P/VP para ações na demo
+  WEGE3:{g:2.0,y:3.0},
+  PETR4:{g:1.0,y:1.6}
 };
 
-function getSession(){try{return JSON.parse(localStorage.getItem(PREMIUM_SESSION)||'null')}catch{return null}}
-function getPortfolio(){
-  const sess=getSession();
-  if(sess?.email){
-    const users=JSON.parse(localStorage.getItem(USERS)||'{}');
-    return users[sess.email]?.portfolio?.length?users[sess.email].portfolio:sample;
+let portfolio = DEFAULT_PORT.slice();
+let metrics = {};
+
+function getSession(){ try{return JSON.parse(localStorage.getItem(SESSION)||'null')}catch{return null} }
+function isPremium(){ return !!getSession()?.email; }
+
+function loadPortfolio(){
+  const sess = getSession();
+  if (sess?.email) {
+    const users = JSON.parse(localStorage.getItem(USERS)||'{}');
+    const saved = users[sess.email]?.portfolio;
+    if (saved?.length) return saved;
   }
-  try{const d=JSON.parse(sessionStorage.getItem(FREE_KEY)||'null'); return d?.length?d:sample;}catch{return sample;}
-}
-function setFreePortfolio(p){sessionStorage.setItem(FREE_KEY,JSON.stringify(p));}
-
-function classify(t){return t.endsWith('11') && t.length>=6? 'FII':'AÇÃO'}
-function signal(t,v,cls){
-  if(v==null) return ['AGUARDANDO','warn'];
-  const r=rules[t] || (cls==='FII'?rules.fii:rules.stock);
-  if(v<=r.g) return ['COMPRAR FORTE','ok'];
-  if(v<=r.y) return ['COMPRAR NORMAL','warn'];
-  return ['EVITAR','bad'];
+  const inbound = JSON.parse(sessionStorage.getItem('inboundPortfolio')||'null');
+  if (inbound?.length) {
+    sessionStorage.setItem('freePortfolio', JSON.stringify(inbound));
+    sessionStorage.removeItem('inboundPortfolio');
+    return inbound;
+  }
+  const free = JSON.parse(sessionStorage.getItem('freePortfolio')||'null');
+  if (free?.length) return free;
+  return DEFAULT_PORT.slice();
 }
 
-async function fetchMetric(a){
-  const t=a.ticker.toLowerCase();
-  const url = a.cls==='FII'
+function classify(t){ return t.endsWith('11') ? 'FII' : 'AÇÃO'; }
+
+function signal(asset, v){
+  if (v == null) return ['AGUARDANDO', 'd-hold'];
+  const custom = rules[asset.ticker];
+  const base = custom || (asset.cls==='FII' ? rules.FII : rules.ACAO);
+  if (v <= base.g) return ['🟢 COMPRAR FORTE','d-buy'];
+  if (v <= base.y) return ['🟡 COMPRAR NORMAL','d-hold'];
+  return ['🔴 EVITAR AGORA','d-avoid'];
+}
+
+function reason(asset){
+  if (asset.cls==='FII') return 'Faixa P/VP de desconto melhora retorno do reinvestimento.';
+  return 'P/VP baixo aumenta margem de segurança para entrada.';
+}
+
+async function fetchPvp(asset){
+  const t = asset.ticker.toLowerCase();
+  const url = asset.cls==='FII'
     ? `https://r.jina.ai/http://investidor10.com.br/fiis/${t}/`
     : `https://r.jina.ai/http://investidor10.com.br/acoes/${t}/`;
-  const res=await fetch(url); if(!res.ok) throw new Error('fetch fail');
-  const txt=await res.text();
-  const rgx = a.cls==='FII'
-    ? [/P\/VP\s*([0-9]+,[0-9]+)/i,/P\/VP[^0-9]*([0-9]+,[0-9]+)/i]
-    : [/P\/L\s*([0-9]+,[0-9]+)/i,/P\/L[^0-9]*([0-9]+,[0-9]+)/i];
-  let m=null; for(const r of rgx){m=txt.match(r); if(m) break;}
-  if(!m) throw new Error('metric nf');
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('fetch fail');
+  const txt = await res.text();
+  let m = txt.match(/P\/VP\s*([0-9]+,[0-9]+)/i) || txt.match(/P\/VP[^0-9]*([0-9]+,[0-9]+)/i);
+  if (!m) throw new Error('pvp nf');
   return Number(m[1].replace(',','.'));
 }
 
-let portfolio=getPortfolio();
-let metrics={};
-
 function render(){
-  const sess=getSession();
-  document.getElementById('saveBtn').classList.toggle('hidden',!sess?.email);
-  document.getElementById('logoutBtn').classList.toggle('hidden',!sess?.email);
-  document.getElementById('authBtn').textContent=sess?.email?`Premium: ${sess.email}`:'Cadastro/Login Premium';
-  document.getElementById('mode').textContent=sess?.email
-    ? 'Modo premium: você pode salvar e recuperar em outro dia/dispositivo.'
-    : 'Modo grátis: se sair da página, perde os dados (amostra).';
+  const sess = getSession();
+  document.getElementById('authBtn').textContent = sess?.email ? `Premium: ${sess.email}` : 'Cadastro/Login Premium';
+  document.getElementById('saveBtn').classList.toggle('hidden', !isPremium());
+  document.getElementById('logoutBtn').classList.toggle('hidden', !isPremium());
+  document.getElementById('mode').textContent = isPremium()
+    ? 'Modo premium: pode salvar e recuperar depois.'
+    : 'Modo grátis: ao sair do site, os dados podem ser perdidos (amostra).';
 
-  const tb=document.getElementById('rows'); tb.innerHTML='';
+  const inv = document.getElementById('invRows'); inv.innerHTML='';
+  const dec = document.getElementById('decisionRows'); dec.innerHTML='';
+
   portfolio.forEach(a=>{
-    const v=metrics[a.ticker];
-    const [s,c]=signal(a.ticker,v,a.cls);
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${a.cls}</td><td>${a.qty}</td><td>${v!=null?v.toFixed(2):'-'}</td><td><span class='pill ${c}'>${s}</span></td>`;
-    tb.appendChild(tr);
+    const tr1=document.createElement('tr');
+    tr1.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${a.cls}</td><td>${a.qty}</td>`;
+    inv.appendChild(tr1);
+
+    const v = metrics[a.ticker];
+    const [txt, cls] = signal(a,v);
+    const tr2=document.createElement('tr');
+    tr2.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${a.cls}</td><td>${v!=null?v.toFixed(2):'-'}</td><td><span class="decision ${cls}">${txt}</span></td><td>${reason(a)}</td>`;
+    dec.appendChild(tr2);
   });
 }
 
 async function refresh(){
+  let ok=0, fail=0;
   document.getElementById('status').textContent='Atualizando...';
-  let ok=0,fail=0;
-  for(const a of portfolio){
-    try{metrics[a.ticker]=await fetchMetric(a); ok++;}
-    catch{fail++;}
+  for (const a of portfolio) {
+    try { metrics[a.ticker] = await fetchPvp(a); ok++; }
+    catch { fail++; }
   }
-  document.getElementById('status').textContent=`Atualizado: ${ok} ok, ${fail} falhas.`;
+  document.getElementById('status').textContent=`Atualização concluída: ${ok} ativos atualizados, ${fail} falhas.`;
   render();
 }
 
-document.getElementById('refreshBtn').onclick=refresh;
-document.getElementById('saveBtn').onclick=()=>{
-  const sess=getSession(); if(!sess?.email) return;
-  const users=JSON.parse(localStorage.getItem(USERS)||'{}');
-  users[sess.email]=users[sess.email]||{};
-  users[sess.email].portfolio=portfolio;
-  localStorage.setItem(USERS,JSON.stringify(users));
-  alert('Carteira salva no premium.');
+// chart
+new Chart(document.getElementById('allocChart'), {
+  type:'bar',
+  data:{
+    labels:['Fundos','Ações BR','Avenue','Cripto total','Liquidez imediata'],
+    datasets:[{label:'R$', data:[183969.08,41895.69,27257,64883,49650.31], backgroundColor:['#6ea8fe','#6dd3a0','#f6c15a','#c48cff','#8bd1ff']}]
+  },
+  options:{
+    indexAxis:'y',
+    scales:{
+      x:{ticks:{color:'#dce5ff'}, grid:{color:'rgba(120,150,220,.28)'}},
+      y:{ticks:{color:'#dce5ff'}, grid:{color:'rgba(120,150,220,.18)'}}
+    },
+    plugins:{legend:{labels:{color:'#e8ecff'}}}
+  }
+});
+
+// actions
+document.getElementById('refreshBtn').onclick = refresh;
+document.getElementById('saveBtn').onclick = ()=>{
+  const sess = getSession(); if (!sess?.email) return;
+  const users = JSON.parse(localStorage.getItem(USERS)||'{}');
+  users[sess.email] = users[sess.email] || {};
+  users[sess.email].portfolio = portfolio;
+  localStorage.setItem(USERS, JSON.stringify(users));
+  alert('Carteira salva com sucesso.');
 };
-document.getElementById('logoutBtn').onclick=()=>{localStorage.removeItem(PREMIUM_SESSION); location.reload();};
+document.getElementById('logoutBtn').onclick = ()=>{ localStorage.removeItem(SESSION); location.reload(); };
 
-// ingest from add page (free sample in session)
-try{
-  const inbound=JSON.parse(sessionStorage.getItem('inboundPortfolio')||'null');
-  if(inbound?.length){portfolio=inbound; setFreePortfolio(inbound); sessionStorage.removeItem('inboundPortfolio');}
-}catch{}
-
+portfolio = loadPortfolio().map(x=>({ ...x, cls: x.cls || classify(x.ticker) }));
 render();
 </script>
 </body>
