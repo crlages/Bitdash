@@ -91,7 +91,7 @@
     <div class="card">
       <h3>Alocação por bloco (barras horizontais)</h3>
       <div style="max-width:520px; margin:0;">
-        <canvas id="allocChart" height="260"></canvas>
+        <canvas id="allocChart" height="180"></canvas>
       </div>
       <div class="small muted" style="text-align:center; margin-top:8px;">Visual em barras para leitura mais clara</div>
     </div>
@@ -144,7 +144,7 @@
     <div class="small muted">Preencha apenas o P/VP atual de cada FII. O dashboard responde sozinho: COMPRAR FORTE, COMPRAR NORMAL ou EVITAR.</div>
     <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
       <button id="autoPvpBtn" style="padding:7px 12px; border-radius:8px; border:1px solid #3552a3; background:#1a2a57; color:#e8ecff; cursor:pointer;">Atualizar P/VP automático</button>
-      <span id="autoPvpStatus" class="small muted">Fonte: Funds Explorer + Status Invest (via proxy de leitura)</span>
+      <span id="autoPvpStatus" class="small muted">Fonte: Investidor10 (via proxy de leitura)</span>
     </div>
     <table style="margin-top:8px;">
       <thead><tr><th>FII</th><th>P/VP atual</th><th>Decisão</th><th>Motivo</th></tr></thead>
@@ -157,7 +157,7 @@
     <div class="small muted">Mesma lógica objetiva: sem cálculo manual. Clique no botão e veja o sinal.</div>
     <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
       <button id="autoPlBtn" style="padding:7px 12px; border-radius:8px; border:1px solid #3552a3; background:#1a2a57; color:#e8ecff; cursor:pointer;">Atualizar P/L automático</button>
-      <span id="autoPlStatus" class="small muted">Fonte: Status Invest (ações + ETF EUA, via proxy de leitura)</span>
+      <span id="autoPlStatus" class="small muted">Fonte: Investidor10 (ações + ETFs globais, via proxy de leitura)</span>
     </div>
     <table style="margin-top:8px;">
       <thead><tr><th>Ativo</th><th>P/L atual</th><th>Decisão</th><th>Motivo</th></tr></thead>
@@ -210,7 +210,7 @@
             border: { color: 'rgba(120,150,220,.45)' }
           }
         },
-        datasets: { bar: { barPercentage: 0.72, categoryPercentage: 0.86 } },
+        datasets: { bar: { barPercentage: 0.5, categoryPercentage: 0.7 } },
         plugins: { legend: { labels: { color: '#e8ecff' } } }
       }
     });
@@ -237,9 +237,7 @@
 
     async function fetchPvpFromWeb(ticker) {
       const lower = ticker.toLowerCase();
-      const url = ticker === 'KDIF11'
-        ? `https://r.jina.ai/http://statusinvest.com.br/fiinfras/${lower}`
-        : `https://r.jina.ai/http://www.fundsexplorer.com.br/funds/${ticker}`;
+      const url = `https://r.jina.ai/http://investidor10.com.br/fiis/${lower}/`;
       const res = await fetch(url);
       if (!res.ok) throw new Error('falha no fetch');
       const txt = await res.text();
@@ -312,23 +310,20 @@
 
     async function fetchPLFromWeb(ticker) {
       const isEtfUs = ticker === 'IVV' || ticker === 'SCHD';
-      const urls = isEtfUs
-        ? [`https://r.jina.ai/http://statusinvest.com.br/etf/eua/${ticker.toLowerCase()}`]
-        : [`https://r.jina.ai/http://statusinvest.com.br/acoes/${ticker.toLowerCase()}`];
+      const lower = ticker.toLowerCase();
+      const url = isEtfUs
+        ? `https://r.jina.ai/http://investidor10.com.br/etfs-global/${lower}/`
+        : `https://r.jina.ai/http://investidor10.com.br/acoes/${lower}/`;
 
-      for (const url of urls) {
-        try {
-          const res = await fetch(url);
-          if (!res.ok) continue;
-          const txt = await res.text();
-          // Para ações: P/L. Para ETF EUA: usar P/L quando existir, senão P/VP.
-          let m = txt.match(/P\/L\s*([0-9]+,[0-9]+)/i) || txt.match(/P\/L[^0-9]*([0-9]+,[0-9]+)/i);
-          if (!m) m = txt.match(/P\/L\s*([0-9]+\.[0-9]+)/i);
-          if (!m) m = txt.match(/P\/VP\s*([0-9]+,[0-9]+)/i) || txt.match(/P\/VP[^0-9]*([0-9]+,[0-9]+)/i);
-          if (m) return Number(String(m[1]).replace(',', '.'));
-        } catch (_) {}
-      }
-      throw new Error('Múltiplo não encontrado');
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('falha no fetch');
+      const txt = await res.text();
+      // Ações: prioriza P/L. ETFs globais: tenta P/L e depois P/VP.
+      let m = txt.match(/P\/L\s*([0-9]+,[0-9]+)/i) || txt.match(/P\/L[^0-9]*([0-9]+,[0-9]+)/i);
+      if (!m) m = txt.match(/P\/L\s*([0-9]+\.[0-9]+)/i);
+      if (!m) m = txt.match(/P\/VP\s*([0-9]+,[0-9]+)/i) || txt.match(/P\/VP[^0-9]*([0-9]+,[0-9]+)/i);
+      if (!m) throw new Error('Múltiplo não encontrado');
+      return Number(String(m[1]).replace(',', '.'));
     }
 
     Object.entries(stockRules).forEach(([ticker, rule]) => {
