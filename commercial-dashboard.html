@@ -114,14 +114,10 @@
       </ul>
     </div>
     <div class="card" style="max-height:360px; overflow:auto;">
-      <h3>Leitura rápida + Notícias dos ativos</h3>
-      <div class="muted">Fontes: StatusInvest, Investing, InfoMoney, Investidor10, FundsExplorer.</div>
-      <div style="display:flex; gap:8px; align-items:center; margin:8px 0; flex-wrap:wrap;">
-        <button id="newsBtn">Atualizar notícias</button>
-        <span id="newsStatus" class="muted">Aguardando.</span>
-      </div>
+      <h3>Inventário de posições</h3>
+      <div class="muted">Quantidade de cotas/ações por ativo.</div>
       <table style="margin-top:8px;">
-        <thead><tr><th>Ativo</th><th>Classe</th><th>Qtd</th><th>Notícia/Link</th></tr></thead>
+        <thead><tr><th>Ativo</th><th>Classe</th><th>Quantidade</th></tr></thead>
         <tbody id="invRows"></tbody>
       </table>
     </div>
@@ -250,7 +246,7 @@ function render(){
 
   portfolio.forEach(a=>{
     const tr1=document.createElement('tr');
-    tr1.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${a.cls}</td><td>${Number(a.qty).toLocaleString('pt-BR',{maximumFractionDigits:8})}</td><td id="news_${a.ticker}" class="muted">-</td>`;
+    tr1.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${a.cls}</td><td>${Number(a.qty).toLocaleString('pt-BR',{maximumFractionDigits:8})}</td>`;
     inv.appendChild(tr1);
 
     const v = metrics[a.ticker];
@@ -339,48 +335,8 @@ function updateSummary(){
   }
 }
 
-async function fetchNewsForTicker(ticker){
-  const q = encodeURIComponent(ticker);
-  const targets = [
-    `https://r.jina.ai/http://statusinvest.com.br/?s=${q}`,
-    `https://r.jina.ai/http://br.investing.com/search/?q=${q}`,
-    `https://r.jina.ai/http://www.infomoney.com.br/?s=${q}`,
-    `https://r.jina.ai/http://investidor10.com.br/?s=${q}`,
-    `https://r.jina.ai/http://www.fundsexplorer.com.br/?s=${q}`
-  ];
-  for (const u of targets){
-    try{
-      const r = await fetch(u); if(!r.ok) continue;
-      const txt = await r.text();
-      const lines = txt.split('\n').map(x=>x.trim()).filter(Boolean);
-      const hit = lines.find(l => l.length>30 && l.length<180 && /[A-Za-zÀ-ÿ]/.test(l) && !l.toLowerCase().includes('security notice'));
-      if(hit){
-        return {title:hit.replace(/^[-•\d\.)\s]+/,''), url:u.replace('https://r.jina.ai/http://','https://')};
-      }
-    }catch(_){ }
-  }
-  return null;
-}
-
-async function refreshNews(){
-  const st = document.getElementById('newsStatus');
-  st.textContent = 'Buscando notícias...';
-  let ok=0, fail=0;
-  for (const a of portfolio){
-    const cell = document.getElementById(`news_${a.ticker}`);
-    if (!cell) continue;
-    const n = await fetchNewsForTicker(a.ticker);
-    if(n){
-      cell.innerHTML = `<a href="${n.url}" target="_blank" rel="noopener" style="color:#8fc1ff">${n.title}</a>`;
-      ok++;
-    } else { cell.textContent = 'Sem notícia encontrada'; fail++; }
-  }
-  st.textContent = `Notícias: ${ok} encontradas, ${fail} sem resultado.`;
-}
-
 // actions
 document.getElementById('refreshBtn').onclick = refresh;
-document.getElementById('newsBtn').onclick = refreshNews;
 document.getElementById('saveBtn').onclick = ()=>{
   const sess = getSession(); if (!sess?.email) return;
   const users = JSON.parse(localStorage.getItem(USERS)||'{}');
