@@ -352,8 +352,7 @@ async function fetchNewsForTicker(ticker){
     try{
       const r = await fetch(u); if(!r.ok) continue;
       const txt = await r.text();
-      const lines = txt.split('
-').map(x=>x.trim()).filter(Boolean);
+      const lines = txt.split('\n').map(x=>x.trim()).filter(Boolean);
       const hit = lines.find(l => l.length>30 && l.length<180 && /[A-Za-zÀ-ÿ]/.test(l) && !l.toLowerCase().includes('security notice'));
       if(hit){
         return {title:hit.replace(/^[-•\d\.)\s]+/,''), url:u.replace('https://r.jina.ai/http://','https://')};
