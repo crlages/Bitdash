@@ -74,6 +74,92 @@ function genCode() {
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
+function parseBrNum(str) {
+  return Number(String(str || '').replace(/\./g, '').replace(',', '.'));
+}
+
+async function fetchText(url, timeoutMs = 12000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal });
+    if (!r.ok) throw new Error(`http_${r.status}`);
+    return await r.text();
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+function matchNum(txt, patterns) {
+  for (const p of patterns) {
+    const m = txt.match(p);
+    if (m) return parseBrNum(m[1]);
+  }
+  return null;
+}
+
+app.get('/market/asset', async (req, res) => {
+  try {
+    const tickerRaw = String(req.query.ticker || '').trim().toUpperCase();
+    const clsRaw = String(req.query.cls || '').trim().toUpperCase();
+    const ticker = tickerRaw === 'BITCOIN' ? 'BTC' : tickerRaw;
+    const cls = clsRaw || (ticker.endsWith('11') ? 'FII' : 'ACAO');
+
+    const CRYPTO_MAP = { BTC:'bitcoin', ETH:'ethereum', SOL:'solana', XRP:'ripple', BNB:'binancecoin', ADA:'cardano', DOGE:'dogecoin', LTC:'litecoin', USDT:'tether' };
+
+    // FX
+    let usdBrl = 5.2;
+    try {
+      const fxTxt = await fetchText('https://economia.awesomeapi.com.br/json/last/USD-BRL');
+      const fx = JSON.parse(fxTxt);
+      const bid = Number(fx?.USDBRL?.bid);
+      if (Number.isFinite(bid) && bid > 0) usdBrl = bid;
+    } catch {}
+
+    if (cls === 'CRIPTO') {
+      const id = CRYPTO_MAP[ticker];
+      if (!id) return res.status(400).json({ ok:false, error:'crypto_not_mapped' });
+      const j = JSON.parse(await fetchText(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd&include_24hr_change=true`));
+      const usd = Number(j?.[id]?.usd);
+      const ch = Number(j?.[id]?.usd_24h_change);
+      if (!Number.isFinite(usd)) return res.status(502).json({ ok:false, error:'crypto_price_not_found' });
+      return res.json({ ok:true, ticker, cls:'CRIPTO', priceBrl: usd * usdBrl, metric: Number.isFinite(ch) ? ch : null, metricType:'chg24h', usdBrl });
+    }
+
+    const lower = ticker.toLowerCase();
+    const src = cls === 'FII'
+      ? `https://r.jina.ai/http://investidor10.com.br/fiis/${lower}/`
+      : (cls === 'ETF EUA' || cls === 'ETF_EUA')
+        ? `https://r.jina.ai/http://investidor10.com.br/etfs-global/${lower}/`
+        : `https://r.jina.ai/http://investidor10.com.br/acoes/${lower}/`;
+
+    const txt = await fetchText(src);
+
+    const pvp = matchNum(txt, [
+      /P\/VP\s*([0-9\.]+,[0-9]+)/i,
+      /P\/VP[^0-9]*([0-9\.]+,[0-9]+)/i,
+    ]);
+
+    let priceBrl = matchNum(txt, [
+      /Cotação\s*R\$\s*([0-9\.]+,[0-9]+)/i,
+      /Valor atual\s*R\$\s*([0-9\.]+,[0-9]+)/i,
+      /Preço\s*R\$\s*([0-9\.]+,[0-9]+)/i,
+    ]);
+
+    if (!Number.isFinite(priceBrl)) {
+      const usd = matchNum(txt, [
+        /Cotação\s*US\$\s*([0-9\.]+,[0-9]+)/i,
+        /Valor atual\s*US\$\s*([0-9\.]+,[0-9]+)/i,
+      ]);
+      if (Number.isFinite(usd)) priceBrl = usd * usdBrl;
+    }
+
+    return res.json({ ok:true, ticker, cls, priceBrl: Number.isFinite(priceBrl) ? priceBrl : null, metric: Number.isFinite(pvp) ? pvp : null, metricType:'pvp', usdBrl });
+  } catch (e) {
+    return res.status(500).json({ ok:false, error:'market_fetch_failed', detail:String(e.message || e) });
+  }
+});
+
 app.post('/auth/register', async (req, res) => {
   const email = normalizeEmail(req.body.email);
   const password = String(req.body.password || '');

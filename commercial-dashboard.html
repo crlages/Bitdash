@@ -247,75 +247,33 @@ function parseBrNum(str){
 
 async function fetchUsdBrl(){
   try {
-    const r = await withTimeout(fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL?_=' + Date.now(), { cache:'no-store' }), 8000);
-    const j = await r.json();
-    const v = Number(j?.USDBRL?.bid);
-    if (Number.isFinite(v) && v > 0) usdBrl = v;
+    const j = await api('/market/asset?ticker=USDT&cls=CRIPTO');
+    if (Number.isFinite(j.usdBrl)) usdBrl = j.usdBrl;
   } catch {}
 }
 
-async function fetchLivePrice(asset){
-  const t = asset.ticker.toLowerCase();
-
-  if (asset.cls === 'CRIPTO') {
-    const id = CRYPTO_MAP[asset.ticker];
-    if (!id) throw new Error('crypto map nf');
-    const u = `https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd&_=${Date.now()}`;
-    const r = await withTimeout(fetch(u, { cache:'no-store' }), 10000);
-    const j = await r.json();
-    const usd = Number(j?.[id]?.usd);
-    if (!Number.isFinite(usd)) throw new Error('crypto px nf');
-    return usd * usdBrl;
-  }
-
-  const url = asset.cls==='FII'
-    ? `https://r.jina.ai/http://investidor10.com.br/fiis/${t}/`
-    : (asset.cls==='ETF EUA'
-      ? `https://r.jina.ai/http://investidor10.com.br/etfs-global/${t}/`
-      : `https://r.jina.ai/http://investidor10.com.br/acoes/${t}/`);
-
-  const res = await withTimeout(fetch(url + (url.includes('?')?'&':'?') + '_=' + Date.now(), { cache:'no-store' }), 12000);
-  if (!res.ok) throw new Error('price fetch fail');
-  const txt = await res.text();
-
-  let m = txt.match(/Valor atual\s*R\$\s*([0-9\.]+,[0-9]+)/i)
-    || txt.match(/Cotação\s*R\$\s*([0-9\.]+,[0-9]+)/i)
-    || txt.match(/Preço\s*R\$\s*([0-9\.]+,[0-9]+)/i);
-  if (m) return parseBrNum(m[1]);
-
-  // fallback: ETF global pode vir em dólar
-  m = txt.match(/Valor atual\s*US\$\s*([0-9\.]+,[0-9]+)/i)
-    || txt.match(/Cotação\s*US\$\s*([0-9\.]+,[0-9]+)/i)
-    || txt.match(/US\$\s*([0-9\.]+,[0-9]+)/i);
-  if (m) return parseBrNum(m[1]) * usdBrl;
-
-  throw new Error('price not found');
+async function fetchAssetData(asset){
+  const cls = encodeURIComponent(asset.cls || classify(asset.ticker));
+  const t = encodeURIComponent(asset.ticker);
+  const j = await api(`/market/asset?ticker=${t}&cls=${cls}`);
+  if (Number.isFinite(j.usdBrl)) usdBrl = j.usdBrl;
+  return j;
 }
 
 async function fetchPvp(asset){
-  const t = asset.ticker.toLowerCase();
+  const j = await fetchAssetData(asset);
   if (asset.cls === 'CRIPTO') {
-    const id = CRYPTO_MAP[asset.ticker];
-    if (!id) throw new Error('crypto map nf');
-    const u = `https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd&include_24hr_change=true&_=${Date.now()}`;
-    const r = await fetch(u);
-    if (!r.ok) throw new Error('crypto fetch fail');
-    const j = await r.json();
-    const ch = j?.[id]?.usd_24h_change;
-    if (typeof ch !== 'number') throw new Error('crypto metric nf');
-    return ch; // variação 24h
+    if (!Number.isFinite(j.metric)) throw new Error('crypto metric nf');
+    return j.metric;
   }
-  const url = asset.cls==='FII'
-    ? `https://r.jina.ai/http://investidor10.com.br/fiis/${t}/`
-    : (asset.cls==='ETF EUA'
-      ? `https://r.jina.ai/http://investidor10.com.br/etfs-global/${t}/`
-      : `https://r.jina.ai/http://investidor10.com.br/acoes/${t}/`);
-  const res = await withTimeout(fetch(url + (url.includes("?")?"&":"?") + "_=" + Date.now(), { cache: "no-store" }), 12000);
-  if (!res.ok) throw new Error('fetch fail');
-  const txt = await res.text();
-  let m = txt.match(/P\/VP\s*([0-9]+,[0-9]+)/i) || txt.match(/P\/VP[^0-9]*([0-9]+,[0-9]+)/i);
-  if (!m) throw new Error('pvp nf');
-  return Number(m[1].replace(',','.'));
+  if (!Number.isFinite(j.metric)) throw new Error('pvp nf');
+  return j.metric;
+}
+
+async function fetchLivePrice(asset){
+  const j = await fetchAssetData(asset);
+  if (!Number.isFinite(j.priceBrl)) throw new Error('price nf');
+  return j.priceBrl;
 }
 
 function render(){
