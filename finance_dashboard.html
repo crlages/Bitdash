@@ -201,6 +201,10 @@
   <div class="card" style="margin-top:16px;">
     <h3>Painel de decisão instantânea (sem cálculo manual)</h3>
     <div class="small muted">Preencha apenas o P/VP atual de cada FII. O dashboard responde sozinho: COMPRAR FORTE, COMPRAR NORMAL ou EVITAR.</div>
+    <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+      <button id="autoPvpBtn" style="padding:7px 12px; border-radius:8px; border:1px solid #3552a3; background:#1a2a57; color:#e8ecff; cursor:pointer;">Atualizar P/VP automático</button>
+      <span id="autoPvpStatus" class="small muted">Fonte: Status Invest (via proxy de leitura)</span>
+    </div>
     <table style="margin-top:8px;">
       <thead><tr><th>FII</th><th>P/VP atual</th><th>Decisão</th><th>Motivo</th></tr></thead>
       <tbody id="fiiDecisionBody"></tbody>
@@ -264,6 +268,35 @@
     };
 
     const tbody = document.getElementById('fiiDecisionBody');
+
+    async function fetchPvpFromWeb(ticker) {
+      const url = `https://r.jina.ai/http://statusinvest.com.br/fundos-imobiliarios/${ticker.toLowerCase()}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('falha no fetch');
+      const txt = await res.text();
+      const m = txt.match(/P\/VP\s*([0-9]+,[0-9]+)/i) || txt.match(/P\/VP[^0-9]*([0-9]+,[0-9]+)/i);
+      if (!m) throw new Error('P/VP não encontrado');
+      return Number(m[1].replace(',', '.'));
+    }
+
+    document.getElementById('autoPvpBtn').addEventListener('click', async () => {
+      const status = document.getElementById('autoPvpStatus');
+      status.textContent = 'Atualizando P/VP...';
+      let ok = 0, fail = 0;
+      for (const ticker of Object.keys(fiiRules)) {
+        const input = document.getElementById(`pv_${ticker}`);
+        try {
+          const v = await fetchPvpFromWeb(ticker);
+          input.value = v.toFixed(2);
+          input.dispatchEvent(new Event('input'));
+          ok++;
+        } catch (e) {
+          fail++;
+        }
+      }
+      status.textContent = `Atualização concluída: ${ok} ativos atualizados, ${fail} falhas.`;
+    });
+
     Object.entries(fiiRules).forEach(([ticker, rule]) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
