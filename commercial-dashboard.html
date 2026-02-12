@@ -173,6 +173,8 @@ const rules = {
 
 let portfolio = DEFAULT_PORT.slice();
 let metrics = {};
+let marketPrices = {};
+let usdBrl = 5.2;
 let currentUser = null;
 
 async function api(path, method='GET', body){
@@ -239,6 +241,57 @@ function withTimeout(promise, ms=12000){
   return Promise.race([promise, new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')), ms))]);
 }
 
+function parseBrNum(str){
+  return Number(String(str||'').replace(/\./g,'').replace(',', '.'));
+}
+
+async function fetchUsdBrl(){
+  try {
+    const r = await withTimeout(fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL?_=' + Date.now(), { cache:'no-store' }), 8000);
+    const j = await r.json();
+    const v = Number(j?.USDBRL?.bid);
+    if (Number.isFinite(v) && v > 0) usdBrl = v;
+  } catch {}
+}
+
+async function fetchLivePrice(asset){
+  const t = asset.ticker.toLowerCase();
+
+  if (asset.cls === 'CRIPTO') {
+    const id = CRYPTO_MAP[asset.ticker];
+    if (!id) throw new Error('crypto map nf');
+    const u = `https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd&_=${Date.now()}`;
+    const r = await withTimeout(fetch(u, { cache:'no-store' }), 10000);
+    const j = await r.json();
+    const usd = Number(j?.[id]?.usd);
+    if (!Number.isFinite(usd)) throw new Error('crypto px nf');
+    return usd * usdBrl;
+  }
+
+  const url = asset.cls==='FII'
+    ? `https://r.jina.ai/http://investidor10.com.br/fiis/${t}/`
+    : (asset.cls==='ETF EUA'
+      ? `https://r.jina.ai/http://investidor10.com.br/etfs-global/${t}/`
+      : `https://r.jina.ai/http://investidor10.com.br/acoes/${t}/`);
+
+  const res = await withTimeout(fetch(url + (url.includes('?')?'&':'?') + '_=' + Date.now(), { cache:'no-store' }), 12000);
+  if (!res.ok) throw new Error('price fetch fail');
+  const txt = await res.text();
+
+  let m = txt.match(/Valor atual\s*R\$\s*([0-9\.]+,[0-9]+)/i)
+    || txt.match(/Cotação\s*R\$\s*([0-9\.]+,[0-9]+)/i)
+    || txt.match(/Preço\s*R\$\s*([0-9\.]+,[0-9]+)/i);
+  if (m) return parseBrNum(m[1]);
+
+  // fallback: ETF global pode vir em dólar
+  m = txt.match(/Valor atual\s*US\$\s*([0-9\.]+,[0-9]+)/i)
+    || txt.match(/Cotação\s*US\$\s*([0-9\.]+,[0-9]+)/i)
+    || txt.match(/US\$\s*([0-9\.]+,[0-9]+)/i);
+  if (m) return parseBrNum(m[1]) * usdBrl;
+
+  throw new Error('price not found');
+}
+
 async function fetchPvp(asset){
   const t = asset.ticker.toLowerCase();
   if (asset.cls === 'CRIPTO') {
@@ -297,15 +350,21 @@ function render(){
 }
 
 async function refresh(){
-  let ok=0, fail=0;
+  let ok=0, fail=0, pxOk=0, pxFail=0;
   const btn = document.getElementById('refreshBtn');
   btn.disabled = true;
-  document.getElementById('status').textContent='Atualizando...';
+  document.getElementById('status').textContent='Atualizando métricas e preços...';
+
+  await fetchUsdBrl();
+
   await Promise.allSettled(portfolio.map(async (a)=>{
     try { metrics[a.ticker] = await fetchPvp(a); ok++; }
     catch { fail++; }
+    try { marketPrices[a.ticker] = await fetchLivePrice(a); pxOk++; }
+    catch { pxFail++; }
   }));
-  document.getElementById('status').textContent=`Atualização concluída: ${ok} ativos atualizados, ${fail} falhas.`;
+
+  document.getElementById('status').textContent=`P/VP/24h: ${ok} ok, ${fail} falhas • Preços: ${pxOk} ok, ${pxFail} falhas (USD/BRL ${usdBrl.toFixed(2)}).`;
   btn.disabled = false;
   render();
 }
@@ -322,7 +381,8 @@ const priceRef = {
 const usdRef = {BTC:98000, ETH:3200, SOL:180, XRP:0.6, BNB:650, ADA:0.8, DOGE:0.12, LTC:90, USDT:1};
 
 function unitPrice(asset){
-  if (asset.cls==='CRIPTO') return (usdRef[asset.ticker] || 1) * 5.2;
+  if (Number.isFinite(marketPrices[asset.ticker])) return marketPrices[asset.ticker];
+  if (asset.cls==='CRIPTO') return (usdRef[asset.ticker] || 1) * usdBrl;
   return priceRef[asset.ticker] || 20;
 }
 
@@ -400,6 +460,7 @@ window.addEventListener('resize', () => {
 (async function init(){
   portfolio = (await loadPortfolio()).map(x=>({ ...x, ticker: normalizeTicker(x.ticker), cls: x.cls || classify(x.ticker) }));
   render();
+  refresh();
 })();
 </script>
 </body>
