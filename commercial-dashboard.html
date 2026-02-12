@@ -57,8 +57,8 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Dashboard Financeiro</h1>
-      <div class="muted">Snapshot da carteira exemplo (2 FIIs + 2 ações), atualizado pelos ativos cadastrados.</div>
+      <h1>Bitdash - Buy it Dashboard</h1>
+      <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
       <button onclick="location.href='commercial-add-assets.html'">+ Adicionar ativos</button>
@@ -90,38 +90,27 @@
     </div>
   </div>
 
-  <div class="grid two" style="margin-top:14px;">
+  <div class="grid" style="margin-top:14px;">
     <div class="card">
       <h3>Alocação por bloco (barras horizontais)</h3>
-      <div id="chartWrap" style="max-width:540px; max-height:320px; overflow:auto; border:1px solid #233565; border-radius:10px; padding:8px;"><canvas id="allocChart" height="180"></canvas></div>
+      <div id="chartWrap" style="max-width:1100px; max-height:520px; overflow:auto; border:1px solid #233565; border-radius:10px; padding:8px;"><canvas id="allocChart" height="240"></canvas></div>
       <div class="muted" style="margin-top:8px;text-align:center">Visual em barras para leitura mais clara</div>
-    </div>
-    <div class="card">
-      <h3>Leitura rápida</h3>
-      <div class="pill ok">Pontos fortes</div>
-      <ul>
-        <li>Boa diversificação em classes (caixa, fundos, ações, cripto, exterior).</li>
-        <li>Liquidez de curto prazo confortável (~13,5%).</li>
-        <li>Boa presença em FIIs e ações com foco em dividendos.</li>
-      </ul>
-      <div class="pill warn">Atenções</div>
-      <ul>
-        <li>Cripto em ~17,6% pode ser alta para perfil conservador/moderado.</li>
-        <li>Fundos em ~50% do patrimônio: revisar taxas e performance líquida.</li>
-        <li>Muitas posições pequenas em ações BR podem reduzir eficiência.</li>
-      </ul>
     </div>
   </div>
 
   <div class="grid two" style="margin-top:14px;">
     <div class="card">
-      <h3>Recomendações práticas (próximos 30 dias)</h3>
+      <h3>Leitura rápida</h3>
+      <div class="pill ok">Pontos fortes</div>
       <ul>
-        <li>Definir sua meta de alocação (ex.: Caixa 10-15%, Cripto 8-12%, Exterior 15-25%).</li>
-        <li>Revisar fundos: manter os que batem benchmark com taxa aceitável.</li>
-        <li>Consolidar ações muito pequenas para simplificar carteira.</li>
-        <li>Mapear risco cambial: Avenue + cripto já dão proteção em dólar.</li>
-        <li>Criar regra de rebalanceamento (a cada 6 meses ou desvio >20%).</li>
+        <li>Decisão de compra visual por ativo com regra objetiva.</li>
+        <li>Atualização automática de múltiplos por fonte pública.</li>
+        <li>Fluxo de cadastro em texto livre (rápido e escalável).</li>
+      </ul>
+      <div class="pill warn">Atenções</div>
+      <ul>
+        <li>Métricas dependem da disponibilidade das fontes externas.</li>
+        <li>Sempre valide ativos de baixa liquidez antes de comprar.</li>
       </ul>
     </div>
     <div class="card">
@@ -158,7 +147,7 @@ const DEFAULT_PORT=[
 ];
 
 
-const CRYPTO_SET = new Set(['BTC','ETH','SOL','XRP','BNB','ADA','DOGE','LTC','USDT']);
+const CRYPTO_SET = new Set(['BTC','BITCOIN','ETH','SOL','XRP','BNB','ADA','DOGE','LTC','USDT']);
 const CRYPTO_MAP = { BTC:'bitcoin', ETH:'ethereum', SOL:'solana', XRP:'ripple', BNB:'binancecoin', ADA:'cardano', DOGE:'dogecoin', LTC:'litecoin', USDT:'tether' };
 
 const rules = {
@@ -192,7 +181,8 @@ function loadPortfolio(){
   return DEFAULT_PORT.slice();
 }
 
-function classify(t){ if (CRYPTO_SET.has(t)) return 'CRIPTO'; if (['IVV','SCHD'].includes(t)) return 'ETF EUA'; return t.endsWith('11') ? 'FII' : 'AÇÃO'; }
+function normalizeTicker(t){ return t==='BITCOIN' ? 'BTC' : t; }
+function classify(t){ t=normalizeTicker(t); if (CRYPTO_SET.has(t)) return 'CRIPTO'; if (['IVV','SCHD'].includes(t)) return 'ETF EUA'; return t.endsWith('11') ? 'FII' : 'AÇÃO'; }
 
 function signal(asset, v){
   if (v == null) return ['AGUARDANDO', 'd-hold'];
@@ -319,7 +309,7 @@ function updateSummary(){
   const labels = byTicker.map(x=>x.label);
   const data = byTicker.map(x=>x.value);
   const c = document.getElementById('allocChart');
-  c.height = Math.max(160, labels.length * 34);
+  c.height = Math.max(220, labels.length * 42);
 
   if (!allocChart){
     allocChart = new Chart(document.getElementById('allocChart'), {
@@ -354,7 +344,7 @@ document.getElementById('saveBtn').onclick = ()=>{
 };
 document.getElementById('logoutBtn').onclick = ()=>{ localStorage.removeItem(SESSION); location.reload(); };
 
-portfolio = loadPortfolio().map(x=>({ ...x, cls: x.cls || classify(x.ticker) }));
+portfolio = loadPortfolio().map(x=>({ ...x, ticker: normalizeTicker(x.ticker), cls: x.cls || classify(x.ticker) }));
 render();
 </script>
 </body>

@@ -24,12 +24,13 @@
   </div>
 
 <script>
-function cls(t){ if(['IVV','SCHD'].includes(t)) return 'ETF EUA'; if(['BTC','ETH','SOL','XRP','BNB','ADA','DOGE','LTC','USDT'].includes(t)) return 'CRIPTO'; return t.endsWith('11')&&t.length>=6?'FII':'AÇÃO'; }
+function norm(t){ return t==='BITCOIN' ? 'BTC' : t; }
+function cls(t){ t=norm(t); if(['IVV','SCHD'].includes(t)) return 'ETF EUA'; if(['BTC','BITCOIN','ETH','SOL','XRP','BNB','ADA','DOGE','LTC','USDT'].includes(t)) return 'CRIPTO'; return t.endsWith('11')&&t.length>=6?'FII':'AÇÃO'; }
 function parse(text){
   const up=text.toUpperCase().replace(/[\n\t;,]+/g,' ');
   const re=/\b([A-Z]{2,6}\d{0,2})\b\s+(\d{1,7})\b/g;
   const map=new Map(); let m;
-  while((m=re.exec(up))!==null){ const t=m[1],q=Number(m[2]); if(!q) continue; map.set(t,(map.get(t)||0)+q); }
+  while((m=re.exec(up))!==null){ let t=m[1],q=Number(m[2]); if(!q) continue; t=norm(t); map.set(t,(map.get(t)||0)+q); }
   return [...map.entries()].map(([ticker,qty])=>({ticker,qty,cls:cls(ticker)}));
 }
 
