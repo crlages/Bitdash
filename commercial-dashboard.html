@@ -170,6 +170,10 @@ let portfolio = DEFAULT_PORT.slice();
 let metrics = {};
 let marketPrices = {};
 try { marketPrices = JSON.parse(localStorage.getItem('bitdash_market_prices')||'{}') || {}; } catch {}
+if (Number.isFinite(marketPrices.HGBS11) && marketPrices.HGBS11 > 80) {
+  marketPrices.HGBS11 = 20.18;
+  try { localStorage.setItem('bitdash_market_prices', JSON.stringify(marketPrices)); } catch {}
+}
 let usdBrl = 5.2;
 let currentUser = null;
 
@@ -374,6 +378,7 @@ const priceRef = {
 const usdRef = {BTC:98000, ETH:3200, SOL:180, XRP:0.6, BNB:650, ADA:0.8, DOGE:0.12, LTC:90, USDT:1};
 
 function unitPrice(asset){
+  if (asset.ticker==='HGBS11' && Number.isFinite(marketPrices[asset.ticker]) && marketPrices[asset.ticker] > 80) return 20.18;
   if (Number.isFinite(marketPrices[asset.ticker])) return marketPrices[asset.ticker];
   if (asset.cls==='CRIPTO') return (usdRef[asset.ticker] || 1) * usdBrl;
   return priceRef[asset.ticker] || 20;
