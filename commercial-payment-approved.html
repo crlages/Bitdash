@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pagamento Aprovado - Bitdash</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #121a33;
+      --text: #e8ecff;
+      --muted: #9aa7d8;
+      --ok: #35d07f;
+      --line: #233565;
+      --btn: #1a2a57;
+      --btnLine: #3552a3;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(180deg, #0b1020, #0d1328);
+      color: var(--text);
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+      padding: 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 680px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 35px rgba(0,0,0,.35);
+    }
+    .ok-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(53,208,127,.16);
+      color: #9cf3c2;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    h1 { margin: 0 0 10px; font-size: 1.9rem; }
+    p { margin: 0 0 10px; color: var(--muted); line-height: 1.45; }
+    .box {
+      margin-top: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(16,27,56,.35);
+    }
+    .row { display:flex; gap:8px; flex-wrap:wrap; margin-top: 16px; }
+    button, a.btn {
+      appearance: none;
+      text-decoration: none;
+      background: var(--btn);
+      color: var(--text);
+      border: 1px solid var(--btnLine);
+      border-radius: 10px;
+      padding: 9px 14px;
+      cursor: pointer;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ghost {
+      background: transparent;
+      border-color: #3a4f96;
+    }
+    .small { font-size: .9rem; color: var(--muted); margin-top: 14px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="ok-badge">✅ Pagamento aprovado</div>
+    <h1>Seu plano Premium está ativo</h1>
+    <p>Recebemos a confirmação do pagamento com sucesso.</p>
+    <p>Agora você já pode voltar ao Bitdash e usar os recursos Premium.</p>
+
+    <div class="box">
+      <strong>Próximos passos</strong>
+      <p style="margin-top:8px">1) Voltar ao Dashboard<br/>2) Confirmar se aparece seu e-mail no topo<br/>3) Testar o botão de salvar carteira</p>
+    </div>
+
+    <div class="row">
+      <a class="btn" href="commercial-dashboard.html">Ir para o Dashboard</a>
+      <a class="btn ghost" href="commercial-auth.html">Ir para Login Premium</a>
+    </div>
+
+    <div class="small">Bitdash • build payment-approved-v1</div>
+  </div>
+</body>
+</html>
