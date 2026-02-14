@@ -57,7 +57,7 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard</h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-13b</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
@@ -147,7 +147,9 @@
   </div>
 
 <script>
-const API = `${location.protocol}//${location.hostname}:3001`; // evita problema de mixed-content quando subir com HTTPS
+const API_HOST = (!location.hostname || ['localhost','127.0.0.1'].includes(location.hostname)) ? '192.168.1.105' : location.hostname;
+const API_PROTO = location.protocol === 'file:' ? 'http:' : location.protocol;
+const API = `${API_PROTO}//${API_HOST}:3001`; // diagnóstico: API alvo
 const DEFAULT_PORT=[
   {ticker:'MXRF11', qty:120, cls:'FII'},
   {ticker:'HGLG11', qty:60, cls:'FII'},

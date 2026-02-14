@@ -20,8 +20,11 @@ button{background:#1b2d5e;color:#fff;border:1px solid #3d58a6;border-radius:9px;
   <div id="status" class="muted" style="margin-top:10px;"></div>
 </div>
 <script>
-const API = `${location.protocol}//${location.hostname}:3001`;
+const API_HOST = (!location.hostname || ['localhost','127.0.0.1'].includes(location.hostname)) ? '192.168.1.105' : location.hostname;
+const API_PROTO = location.protocol === 'file:' ? 'http:' : location.protocol;
+const API = `${API_PROTO}//${API_HOST}:3001`;
 const statusEl=document.getElementById('status');
+statusEl.textContent = `Conectando em: ${API}`;
 const emailEl=document.getElementById('email');
 const params = new URLSearchParams(location.search);
 emailEl.value = params.get('email') || '';
