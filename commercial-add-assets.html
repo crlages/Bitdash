@@ -6,39 +6,131 @@
   <style>
     body{margin:0;background:#0b1020;color:#e8edff;font-family:Inter,Segoe UI,Arial;padding:20px}
     .card{background:#121a33;border:1px solid #2b3d72;border-radius:14px;padding:14px}
-    textarea{width:100%;min-height:210px;background:#0f1731;color:#fff;border:1px solid #334a87;border-radius:10px;padding:10px;font-family:Consolas,monospace}
+    textarea{width:100%;min-height:180px;background:#0f1731;color:#fff;border:1px solid #334a87;border-radius:10px;padding:10px;font-family:Consolas,monospace}
     button{background:#1b2d5e;color:#fff;border:1px solid #3d58a6;border-radius:9px;padding:8px 12px;cursor:pointer}
+    button[disabled]{opacity:.5;cursor:not-allowed}
     .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.muted{color:#9aa7d8}
+    table{width:100%;border-collapse:collapse;font-size:.94rem;margin-top:8px}
+    th,td{padding:8px;border-bottom:1px solid #243566;text-align:left}
+    th{color:#9aa7d8}
+    .ok{color:#8ef0b7}.bad{color:#ffb1b1}
+    .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:.82rem}
+    .pill.ok{background:rgba(53,208,127,.16)} .pill.bad{background:rgba(255,107,107,.18)}
   </style>
 </head>
 <body>
   <h1 style="margin-top:0">Adicionar novos ativos</h1>
-  <div class="muted">Cole em texto livre. Ex.: "MXRF11 120 PETR4 20 IVV 3"</div>
+  <div class="muted">Aceitamos somente ativos da <strong>B3 (renda variável)</strong>: <strong>Ações</strong> e <strong>Fundos Imobiliários (FIIs)</strong>.</div>
+  <div class="muted" style="margin-top:4px;">Ex.: <code>MXRF11 120 PETR4 20 WEGE3 15</code></div>
+
   <div class="card" style="margin-top:12px;">
-    <textarea id="raw"></textarea>
+    <textarea id="raw" placeholder="Cole os ativos aqui..."></textarea>
     <div class="row" style="margin-top:10px;">
-      <button id="processBtn">Processar e voltar ao Dashboard</button>
+      <button id="analyzeBtn">1) Avaliar ativos</button>
+      <button id="confirmBtn" disabled>2) Confirmar e enviar para precificação</button>
       <button onclick="location.href='commercial-dashboard.html'">Voltar sem salvar</button>
       <span id="status" class="muted"></span>
     </div>
   </div>
 
+  <div class="card" style="margin-top:12px;">
+    <h3 style="margin-top:0">Pré-avaliação dos ativos inseridos</h3>
+    <div class="row" style="margin-bottom:8px;">
+      <span class="pill ok" id="okCount">Válidos: 0</span>
+      <span class="pill bad" id="badCount">Reprovados: 0</span>
+    </div>
+    <table>
+      <thead><tr><th>Ticker</th><th>Qtd</th><th>Classe</th><th>Status</th><th>Motivo</th></tr></thead>
+      <tbody id="reviewRows"></tbody>
+    </table>
+  </div>
+
 <script>
-function norm(t){ return t==='BITCOIN' ? 'BTC' : t; }
-function cls(t){ t=norm(t); if(['IVV','SCHD'].includes(t)) return 'ETF EUA'; if(['BTC','BITCOIN','ETH','SOL','XRP','BNB','ADA','DOGE','LTC','USDT'].includes(t)) return 'CRIPTO'; return t.endsWith('11')&&t.length>=6?'FII':'AÇÃO'; }
-function parse(text){
-  // NÃO remover vírgula: ela pode ser decimal (ex.: BTC 0,89)
-  const up=text.toUpperCase().replace(/[\n\t;]+/g,' ');
-  const re=/\b([A-Z]{2,10}\d{0,2})\b\s+(\d{1,7}(?:[\.,]\d+)?)\b/g;
-  const map=new Map(); let m;
-  while((m=re.exec(up))!==null){ let t=m[1],q=Number(String(m[2]).replace(',', '.')); if(!q) continue; t=norm(t); map.set(t,(map.get(t)||0)+q); }
-  return [...map.entries()].map(([ticker,qty])=>({ticker,qty,cls:cls(ticker)}));
+function normalizeTicker(t){ return String(t||'').trim().toUpperCase(); }
+
+function classifyB3(ticker){
+  // FII: 4 letras + 11 (ex: MXRF11)
+  if (/^[A-Z]{4}11$/.test(ticker)) return 'FII';
+  // Ação B3 comum: 4 letras + final numérico (3/4/...)
+  if (/^[A-Z]{4}\d{1,2}$/.test(ticker)) return 'AÇÃO';
+  return null;
 }
 
-document.getElementById('processBtn').onclick=()=>{
-  const items=parse(document.getElementById('raw').value||'');
-  if(!items.length){document.getElementById('status').textContent='Nada reconhecido.'; return;}
-  sessionStorage.setItem('inboundPortfolio',JSON.stringify(items));
+function parseRaw(text){
+  const up = String(text||'').toUpperCase().replace(/[\n\t;]+/g,' ');
+  const re = /\b([A-Z]{2,10}\d{0,2})\b\s+(\d{1,7}(?:[\.,]\d+)?)\b/g;
+  const map = new Map();
+  let m;
+  while((m=re.exec(up))!==null){
+    const ticker = normalizeTicker(m[1]);
+    const qty = Number(String(m[2]).replace(',', '.'));
+    if (!Number.isFinite(qty) || qty <= 0) continue;
+    map.set(ticker, (map.get(ticker)||0) + qty);
+  }
+  return [...map.entries()].map(([ticker, qty]) => ({ ticker, qty }));
+}
+
+function validateAsset(item){
+  const cls = classifyB3(item.ticker);
+  if (!cls) {
+    return { ...item, cls: '-', ok:false, reason:'Formato inválido ou ativo fora da B3 (aceitos: Ações e FIIs).' };
+  }
+  if (cls === 'AÇÃO' && !/^[A-Z]{4}(3|4|11|5|6)$/.test(item.ticker)) {
+    return { ...item, cls, ok:false, reason:'Ticker de ação fora dos finais usuais (3/4/5/6/11).' };
+  }
+  return { ...item, cls, ok:true, reason:'Aprovado para carteira e precificação.' };
+}
+
+let approvedItems = [];
+
+function renderReview(rows){
+  const tbody = document.getElementById('reviewRows');
+  tbody.innerHTML = '';
+
+  let ok = 0, bad = 0;
+  for (const r of rows) {
+    if (r.ok) ok++; else bad++;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${r.ticker}</strong></td>
+      <td>${Number(r.qty).toLocaleString('pt-BR',{maximumFractionDigits:8})}</td>
+      <td>${r.cls}</td>
+      <td class="${r.ok?'ok':'bad'}"><strong>${r.ok?'APROVADO':'REPROVADO'}</strong></td>
+      <td>${r.reason}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  document.getElementById('okCount').textContent = `Válidos: ${ok}`;
+  document.getElementById('badCount').textContent = `Reprovados: ${bad}`;
+  document.getElementById('confirmBtn').disabled = ok === 0;
+
+  approvedItems = rows.filter(x=>x.ok).map(x=>({ ticker:x.ticker, qty:x.qty, cls:x.cls }));
+}
+
+document.getElementById('analyzeBtn').onclick = () => {
+  const raw = document.getElementById('raw').value || '';
+  const parsed = parseRaw(raw);
+  const status = document.getElementById('status');
+
+  if (!parsed.length) {
+    status.textContent = 'Nada reconhecido. Use padrão: TICKER + quantidade.';
+    renderReview([]);
+    return;
+  }
+
+  const reviewed = parsed.map(validateAsset);
+  renderReview(reviewed);
+  status.textContent = 'Pré-avaliação concluída. Confirme para enviar somente os aprovados.';
+};
+
+document.getElementById('confirmBtn').onclick = () => {
+  const status = document.getElementById('status');
+  if (!approvedItems.length) {
+    status.textContent = 'Nenhum ativo aprovado para envio.';
+    return;
+  }
+  sessionStorage.setItem('inboundPortfolio', JSON.stringify(approvedItems));
   location.href='commercial-dashboard.html';
 };
 </script>
