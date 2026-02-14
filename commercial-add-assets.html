@@ -32,7 +32,7 @@
       color:#dce6ff;font-size:.88rem;line-height:1.35;display:none;box-shadow:0 10px 24px rgba(0,0,0,.35);
       white-space:normal;
     }
-    .tooltip-wrap:hover .tooltip{display:block}
+    .tooltip-wrap:hover .tooltip,.tooltip-wrap.open .tooltip{display:block}
   </style>
 </head>
 <body>
@@ -40,7 +40,7 @@
 
   <div class="row" style="margin-bottom:10px;">
     <div class="muted"><strong>Suporta apenas ativos da B3</strong></div>
-    <div class="tooltip-wrap" aria-label="Informações de tipos de ativos da B3">
+    <div class="tooltip-wrap" id="infoTip" aria-label="Informações de tipos de ativos da B3">
       <span class="info-dot">i</span>
       <div class="tooltip">
         <strong>Tipos de Ativos B3:</strong><br/>
@@ -185,6 +185,23 @@ document.getElementById('confirmBtn').onclick = () => {
   sessionStorage.setItem('inboundPortfolio', JSON.stringify(approvedItems));
   location.href='commercial-dashboard.html';
 };
+
+
+// Tooltip também no clique (mobile/touch)
+(function(){
+  const tip = document.getElementById('infoTip');
+  if (!tip) return;
+
+  tip.addEventListener('click', (e) => {
+    e.stopPropagation();
+    tip.classList.toggle('open');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!tip.contains(e.target)) tip.classList.remove('open');
+  });
+})();
+
 </script>
 </body>
 </html>
