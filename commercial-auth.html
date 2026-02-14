@@ -12,9 +12,7 @@ button{background:#1b2d5e;color:#fff;border:1px solid #3d58a6;border-radius:9px;
   <div class="muted">Etapa 1: cadastre e gere sua contra senha. Etapa 2 será em tela separada.</div>
   <input id="email" placeholder="E-mail"/>
   <input id="pass" type="password" placeholder="Senha (mínimo 6 caracteres)"/>
-  <label class="row"><input id="paid" type="checkbox" style="width:auto"/> Confirmo pagamento (simulação para teste)</label>
-
-  <div class="row" style="margin-top:10px;">
+    <div class="row" style="margin-top:10px;">
     <button id="register">1) Cadastrar e gerar contra senha</button>
     <button id="login">Entrar</button>
     <button onclick="location.href='commercial-dashboard.html'">Voltar</button>
@@ -28,7 +26,6 @@ const emailEl=document.getElementById('email');
 const params = new URLSearchParams(location.search);
 emailEl.value = params.get('email') || '';
 const passEl=document.getElementById('pass');
-const paidEl=document.getElementById('paid');
 
 async function api(path, method='GET', body){
   const r = await fetch(API+path, {
@@ -46,7 +43,6 @@ document.getElementById('register').onclick = async ()=>{
   const email=emailEl.value.trim().toLowerCase();
   const password=passEl.value;
   if(!email || password.length<6){ statusEl.textContent='Preencha e-mail e senha válida.'; return; }
-  if(!paidEl.checked){ statusEl.textContent='Marque confirmação de pagamento (simulação).'; return; }
   try{
     const j = await api('/auth/register','POST',{email,password});
     // Local dev: código aparece aqui para teste

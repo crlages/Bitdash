@@ -181,10 +181,6 @@ app.get('/market/asset', async (req, res) => {
       }
     }
 
-    if (ticker === 'HGBS11') {
-      priceBrl = 188.0;
-    }
-
     const ov = PRICE_OVERRIDES[ticker];
     if (ov && (!Number.isFinite(priceBrl) || priceBrl < ov.min || priceBrl > ov.max)) {
       priceBrl = ov.fallback;
@@ -199,7 +195,7 @@ app.get('/market/asset', async (req, res) => {
 const newsCache = new Map();
 
 const PRICE_OVERRIDES = {
-  HGBS11: { min: 100, max: 400, fallback: 188.0 },
+  HGBS11: { min: 1, max: 80, fallback: 20.18 },
 };
 
 function decodeHtml(str='') {

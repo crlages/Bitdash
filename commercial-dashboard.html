@@ -262,7 +262,7 @@ async function fetchUsdBrl(){
 async function fetchAssetData(asset){
   const cls = encodeURIComponent(canonicalClass(asset));
   const t = encodeURIComponent(asset.ticker);
-  const j = await api(`/market/asset?ticker=${t}&cls=${cls}`);
+  const j = await withTimeout(api(`/market/asset?ticker=${t}&cls=${cls}`), 12000);
   if (Number.isFinite(j.usdBrl)) usdBrl = j.usdBrl;
   return j;
 }
