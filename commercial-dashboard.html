@@ -57,7 +57,7 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-13c</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-13d</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
@@ -179,6 +179,11 @@ if (Number.isFinite(marketPrices.HGBS11) && marketPrices.HGBS11 > 80) {
 let usdBrl = 5.2;
 let currentUser = null;
 
+function getLocalPremiumEmail(){
+  const e = String(localStorage.getItem('bitdash_local_user') || '').trim().toLowerCase();
+  return e || null;
+}
+
 async function api(path, method='GET', body){
   const r = await fetch(API+path, {
     method,
@@ -200,7 +205,14 @@ async function loadPortfolio(){
     const saved = await api('/portfolio');
     if (saved?.portfolio?.length) return saved.portfolio;
   } catch {
-    currentUser = null;
+    const localEmail = getLocalPremiumEmail();
+    currentUser = localEmail ? { email: localEmail, localPremium: true } : null;
+    if (localEmail) {
+      try {
+        const localPort = JSON.parse(localStorage.getItem(`bitdash_portfolio_${localEmail}`) || 'null');
+        if (Array.isArray(localPort) && localPort.length) return localPort;
+      } catch {}
+    }
   }
 
   const inbound = JSON.parse(sessionStorage.getItem('inboundPortfolio')||'null');
@@ -460,12 +472,22 @@ document.getElementById('saveBtn').onclick = async ()=>{
   try {
     await api('/portfolio','POST',{ portfolio });
     alert('Carteira salva com sucesso.');
+    return;
   } catch (e) {
+    const localEmail = getLocalPremiumEmail();
+    if (localEmail) {
+      try {
+        localStorage.setItem(`bitdash_portfolio_${localEmail}`, JSON.stringify(portfolio));
+        alert('Carteira salva localmente com sucesso.');
+        return;
+      } catch {}
+    }
     alert('Erro ao salvar: ' + e.message);
   }
 };
 document.getElementById('logoutBtn').onclick = async ()=>{
   try { await api('/auth/logout','POST',{}); } catch {}
+  try { localStorage.removeItem('bitdash_local_user'); } catch {}
   location.reload();
 };
 
