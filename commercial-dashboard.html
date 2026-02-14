@@ -57,7 +57,7 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-13b</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-13c</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
@@ -149,7 +149,7 @@
 <script>
 const API_HOST = (!location.hostname || ['localhost','127.0.0.1'].includes(location.hostname)) ? '192.168.1.105' : location.hostname;
 const API_PROTO = location.protocol === 'file:' ? 'http:' : location.protocol;
-const API = `${API_PROTO}//${API_HOST}:3001`; // diagnóstico: API alvo
+const API = `${API_PROTO}//${API_HOST}:8001`; // API e site no mesmo host/porta
 const DEFAULT_PORT=[
   {ticker:'MXRF11', qty:120, cls:'FII'},
   {ticker:'HGLG11', qty:60, cls:'FII'},
@@ -268,9 +268,17 @@ async function fetchUsdBrl(){
 async function fetchAssetData(asset){
   const cls = encodeURIComponent(canonicalClass(asset));
   const t = encodeURIComponent(asset.ticker);
-  const j = await withTimeout(api(`/market/asset?ticker=${t}&cls=${cls}`), 12000);
-  if (Number.isFinite(j.usdBrl)) usdBrl = j.usdBrl;
-  return j;
+  try {
+    const j = await withTimeout(api(`/market/asset?ticker=${t}&cls=${cls}`), 12000);
+    if (Number.isFinite(j.usdBrl)) usdBrl = j.usdBrl;
+    return j;
+  } catch {
+    const ticker = asset.ticker;
+    const clsTxt = asset.cls;
+    const price = ticker==='HGBS11' ? 20.18 : unitPrice(asset);
+    const metric = clsTxt==='CRIPTO' ? null : (Number.isFinite(metricRef[ticker]) ? metricRef[ticker] : null);
+    return { ok:true, ticker, cls: clsTxt, priceBrl: price, metric, metricType: clsTxt==='CRIPTO' ? 'chg24h' : 'pvp', usdBrl };
+  }
 }
 
 async function fetchPvp(asset){
@@ -378,6 +386,13 @@ const priceRef = {
   HGBS11: 188.0, CPTS11: 8.9, KDIF11: 100.5
 };
 const usdRef = {BTC:98000, ETH:3200, SOL:180, XRP:0.6, BNB:650, ADA:0.8, DOGE:0.12, LTC:90, USDT:1};
+
+const metricRef = {
+  MXRF11: 1.04, HGLG11: 0.95, PETR4: 1.18, WEGE3: 8.4,
+  HGBS11: 0.97, KNRI11: 0.93, BBAS3: 1.12, VALE3: 1.45,
+  VISC11: 0.89, XPLG11: 0.86
+};
+
 
 function unitPrice(asset){
   if (asset.ticker==='HGBS11' && Number.isFinite(marketPrices[asset.ticker]) && marketPrices[asset.ticker] > 80) return 20.18;

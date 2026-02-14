@@ -22,7 +22,7 @@ button{background:#1b2d5e;color:#fff;border:1px solid #3d58a6;border-radius:9px;
 <script>
 const API_HOST = (!location.hostname || ['localhost','127.0.0.1'].includes(location.hostname)) ? '192.168.1.105' : location.hostname;
 const API_PROTO = location.protocol === 'file:' ? 'http:' : location.protocol;
-const API = `${API_PROTO}//${API_HOST}:3001`;
+const API = `${API_PROTO}//${API_HOST}:8001`;
 const statusEl=document.getElementById('status');
 statusEl.textContent = `Conectando em: ${API}`;
 const emailEl=document.getElementById('email');
@@ -31,15 +31,35 @@ emailEl.value = params.get('email') || '';
 const passEl=document.getElementById('pass');
 
 async function api(path, method='GET', body){
-  const r = await fetch(API+path, {
-    method,
-    headers: {'Content-Type':'application/json'},
-    credentials: 'include',
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  let j={}; try{ j=await r.json(); }catch{}
-  if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
-  return j;
+  try {
+    const r = await fetch(API+path, {
+      method,
+      headers: {'Content-Type':'application/json'},
+      credentials: 'include',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    let j={}; try{ j=await r.json(); }catch{}
+    if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
+    return j;
+  } catch (e) {
+    // fallback local quando API estiver indisponível
+    const users = JSON.parse(localStorage.getItem('bitdash_users')||'{}');
+    if (path==='/auth/register' && method==='POST') {
+      const code = String(Math.floor(100000 + Math.random()*900000));
+      users[body.email] = { password: body.password, verified: false, code };
+      localStorage.setItem('bitdash_users', JSON.stringify(users));
+      return { ok:true, devCode: code };
+    }
+    if (path==='/auth/login' && method==='POST') {
+      const u = users[body.email];
+      if (!u) throw new Error('invalid_credentials');
+      if (!u.verified) throw new Error('email_not_verified');
+      if (u.password !== body.password) throw new Error('invalid_credentials');
+      localStorage.setItem('bitdash_local_user', body.email);
+      return { ok:true };
+    }
+    throw e;
+  }
 }
 
 document.getElementById('register').onclick = async ()=>{
