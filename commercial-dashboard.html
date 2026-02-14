@@ -62,7 +62,7 @@
     </div>
     <div class="actions">
       <button onclick="location.href='commercial-add-assets.html'">+ Adicionar ativos</button>
-      <button onclick="location.href='commercial-auth.html'" id="authBtn">Cadastro/Login Premium</button>
+      <button onclick="location.href='commercial-auth.html'" id="authBtn">Login Premium</button>
       <button id="saveBtn" class="hidden">Salvar carteira (Premium)</button>
       <button id="logoutBtn" class="hidden">Sair</button>
     </div>
@@ -316,7 +316,7 @@ async function fetchLivePrice(asset){
 }
 
 function render(){
-  document.getElementById('authBtn').textContent = currentUser?.email ? `Premium: ${currentUser.email}` : 'Cadastro/Login Premium';
+  document.getElementById('authBtn').textContent = currentUser?.email ? `Premium: ${currentUser.email}` : 'Login Premium';
   document.getElementById('saveBtn').classList.toggle('hidden', !isPremium());
   document.getElementById('logoutBtn').classList.toggle('hidden', !isPremium());
   document.getElementById('mode').textContent = isPremium()
