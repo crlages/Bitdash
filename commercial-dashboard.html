@@ -99,19 +99,14 @@
   </div>
 
   <div class="grid two" style="margin-top:14px;">
-    <div class="card">
-      <h3>Leitura rápida</h3>
-      <div class="pill ok">Pontos fortes</div>
-      <ul>
-        <li>Decisão de compra visual por ativo com regra objetiva.</li>
-        <li>Atualização automática de múltiplos por fonte pública.</li>
-        <li>Fluxo de cadastro em texto livre (rápido e escalável).</li>
-      </ul>
-      <div class="pill warn">Atenções</div>
-      <ul>
-        <li>Métricas dependem da disponibilidade das fontes externas.</li>
-        <li>Sempre valide ativos de baixa liquidez antes de comprar.</li>
-      </ul>
+    <div class="card" style="max-height:360px; overflow:auto;">
+      <h3>Leitura rápida: notícias da carteira</h3>
+      <div class="muted" id="newsStatus">Carregando notícias dos ativos monitorados...</div>
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button id="refreshNewsBtn">Atualizar notícias</button>
+        <span class="pill warn">Fontes externas podem oscilar</span>
+      </div>
+      <ul id="newsList" style="margin-top:10px;padding-left:18px;"></ul>
     </div>
     <div class="card" style="max-height:360px; overflow:auto;">
       <h3>Inventário de posições</h3>
@@ -152,7 +147,7 @@
   </div>
 
 <script>
-const API = `http://${location.hostname}:3001`;
+const API = `${location.protocol}//${location.hostname}:3001`; // evita problema de mixed-content quando subir com HTTPS
 const DEFAULT_PORT=[
   {ticker:'MXRF11', qty:120, cls:'FII'},
   {ticker:'HGLG11', qty:60, cls:'FII'},
@@ -437,6 +432,7 @@ function updateSummary(){
 
 // actions
 document.getElementById('refreshBtn').onclick = refresh;
+document.getElementById('refreshNewsBtn').onclick = loadNews;
 document.getElementById('saveBtn').onclick = async ()=>{
   if (!isPremium()) return;
   try {
@@ -451,6 +447,85 @@ document.getElementById('logoutBtn').onclick = async ()=>{
   location.reload();
 };
 
+
+
+function fallbackNewsItems(){
+  const unique = [...new Set(portfolio.map(a=>a.ticker))].slice(0, 8);
+  return unique.map(ticker => ({
+    ticker,
+    title: `Buscar notícias recentes de ${ticker}`,
+    source: 'Google News',
+    url: `https://news.google.com/search?q=${encodeURIComponent(ticker)}%20when%3A7d&hl=pt-BR&gl=BR&ceid=BR:pt-419`,
+    time: null,
+  }));
+}
+
+function timeAgo(input){
+  const d = new Date(input);
+  if (!input || Number.isNaN(d.getTime())) return '';
+  const diffMin = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (diffMin < 1) return 'agora';
+  if (diffMin < 60) return `há ${diffMin} min`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `há ${diffH} h`;
+  const diffD = Math.floor(diffH / 24);
+  return `há ${diffD} dia(s)`;
+}
+
+function renderNews(items){
+  const list = document.getElementById('newsList');
+  const status = document.getElementById('newsStatus');
+  list.innerHTML = '';
+
+  if (!items.length) {
+    status.textContent = 'Sem notícias encontradas para os ativos atuais.';
+    return;
+  }
+
+  status.textContent = `Mostrando ${items.length} notícia(s) relacionadas aos ativos da carteira.`;
+
+  for (const n of items) {
+    const li = document.createElement('li');
+    const ago = timeAgo(n.time);
+    const ticker = n.ticker ? `<strong>[${n.ticker}]</strong> ` : '';
+    const meta = [n.source || 'Fonte externa', ago].filter(Boolean).join(' • ');
+    const safeTitle = n.title || 'Notícia sem título';
+    li.style.marginBottom = '10px';
+    li.innerHTML = `${ticker}<a href="${n.url || '#'}" target="_blank" rel="noopener noreferrer" style="color:#9ec5ff;text-decoration:none;">${safeTitle}</a><div class="muted" style="font-size:.85rem">${meta}</div>`;
+    list.appendChild(li);
+  }
+}
+
+async function loadNews(){
+  const status = document.getElementById('newsStatus');
+  if (!status) return;
+
+  const tickers = [...new Set(portfolio.map(a => a.ticker))].slice(0, 12);
+  if (!tickers.length) {
+    status.textContent = 'Adicione ativos para visualizar notícias.';
+    renderNews([]);
+    return;
+  }
+
+  status.textContent = 'Buscando notícias em tempo real...';
+
+  try {
+    const q = encodeURIComponent(tickers.join(','));
+    const j = await api(`/market/news?tickers=${q}&limit=12`);
+    const items = Array.isArray(j.news) ? j.news : [];
+
+    if (items.length) {
+      renderNews(items);
+    } else {
+      status.textContent = 'Sem retorno da API de notícias. Exibindo atalhos por ativo.';
+      renderNews(fallbackNewsItems());
+    }
+  } catch {
+    status.textContent = 'API de notícias indisponível. Exibindo atalhos por ativo.';
+    renderNews(fallbackNewsItems());
+  }
+}
+
 window.addEventListener('resize', () => {
   updateSummary();
 });
@@ -462,6 +537,7 @@ window.addEventListener('resize', () => {
   });
   render();
   refresh();
+  loadNews();
 })();
 </script>
 </body>
