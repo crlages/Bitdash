@@ -57,7 +57,7 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-13d</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-13e</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
@@ -172,10 +172,16 @@ let portfolio = DEFAULT_PORT.slice();
 let metrics = {};
 let marketPrices = {};
 try { marketPrices = JSON.parse(localStorage.getItem('bitdash_market_prices')||'{}') || {}; } catch {}
+// limpeza de legado: remove preços genéricos de R$20,00 que vinham de fallback antigo
+for (const [tk, val] of Object.entries(marketPrices)) {
+  if (Number.isFinite(val) && Math.abs(val - 20) < 0.001 && tk !== 'HGBS11') {
+    delete marketPrices[tk];
+  }
+}
 if (Number.isFinite(marketPrices.HGBS11) && marketPrices.HGBS11 > 80) {
   marketPrices.HGBS11 = 20.18;
-  try { localStorage.setItem('bitdash_market_prices', JSON.stringify(marketPrices)); } catch {}
 }
+try { localStorage.setItem('bitdash_market_prices', JSON.stringify(marketPrices)); } catch {}
 let usdBrl = 5.2;
 let currentUser = null;
 
@@ -326,7 +332,7 @@ function render(){
     const unit = unitPrice(a);
     const total = estimateValue(a);
     const trInv=document.createElement('tr');
-    trInv.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${Number(a.qty).toLocaleString('pt-BR',{maximumFractionDigits:8})}</td><td>${brl(unit)}</td><td>${brl(total)}</td>`;
+    trInv.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${Number(a.qty).toLocaleString('pt-BR',{maximumFractionDigits:8})}</td><td>${brlOrNd(unit)}</td><td>${brlOrNd(total)}</td>`;
     if (a.cls==='FII') invFiis.appendChild(trInv);
     else if (a.cls==='CRIPTO') invCriptos.appendChild(trInv);
     else invAcoes.appendChild(trInv);
@@ -389,6 +395,7 @@ async function refresh(){
 let allocChart;
 
 function brl(v){ return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
+function brlOrNd(v){ return Number.isFinite(v) ? brl(v) : 'N/D'; }
 
 const priceRef = {
   MXRF11: 10.3, HGLG11: 158.0, PETR4: 37.8, WEGE3: 53.0,
@@ -409,19 +416,23 @@ const metricRef = {
 function unitPrice(asset){
   if (asset.ticker==='HGBS11' && Number.isFinite(marketPrices[asset.ticker]) && marketPrices[asset.ticker] > 80) return 20.18;
   if (Number.isFinite(marketPrices[asset.ticker])) return marketPrices[asset.ticker];
-  if (asset.cls==='CRIPTO') return (usdRef[asset.ticker] || 1) * usdBrl;
-  return priceRef[asset.ticker] || 20;
+  if (asset.cls==='CRIPTO') return Number.isFinite(usdRef[asset.ticker]) ? ((usdRef[asset.ticker] || 1) * usdBrl) : null;
+  if (Object.prototype.hasOwnProperty.call(priceRef, asset.ticker)) return priceRef[asset.ticker];
+  return null; // não usar fallback genérico para evitar preço incorreto
 }
 
 function estimateValue(asset){
-  return asset.qty * unitPrice(asset);
+  const u = unitPrice(asset);
+  if (!Number.isFinite(u)) return null;
+  return asset.qty * u;
 }
 
 function updateSummary(){
-  let total=0, fiis=0, acoes=0;
+  let total=0, fiis=0, acoes=0, missing=0;
   const byTicker = [];
   portfolio.forEach(a=>{
     const val = estimateValue(a);
+    if (!Number.isFinite(val)) { missing++; return; }
     total += val;
     if(a.cls==='FII') fiis += val; else acoes += val;
     byTicker.push({label:a.ticker, value:val});
@@ -432,7 +443,9 @@ function updateSummary(){
   document.getElementById('kAcoes').textContent = brl(acoes);
   document.getElementById('kCount').textContent = String(portfolio.length);
   document.getElementById('kFiisPct').textContent = total?`${(fiis*100/total).toFixed(1).replace('.',',')}% do total`:'0% do total';
-  document.getElementById('kAcoesPct').textContent = total?`${(acoes*100/total).toFixed(1).replace('.',',')}% do total`:'0% do total';
+  document.getElementById('kAcoesPct').textContent = missing>0
+    ? `${total?`${(acoes*100/total).toFixed(1).replace('.',',')}% do total`: '0% do total'} • ${missing} ativo(s) sem preço confiável`
+    : (total?`${(acoes*100/total).toFixed(1).replace('.',',')}% do total`:'0% do total');
 
   byTicker.sort((a,b)=>b.value-a.value);
   const labels = byTicker.map(x=>x.label);
