@@ -4,13 +4,15 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'bitdash-local-dev-secret-change-me';
 const CODE_TTL_MIN = 15;
 
-const db = new Database('./bitdash.db');
+const dbPath = path.join(__dirname, '..', 'bitdash.db');
+const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
@@ -182,6 +184,75 @@ app.get('/market/asset', async (req, res) => {
     return res.json({ ok:true, ticker, cls, priceBrl: Number.isFinite(priceBrl) ? priceBrl : null, metric: Number.isFinite(pvp) ? pvp : null, metricType:'pvp', usdBrl });
   } catch (e) {
     return res.status(500).json({ ok:false, error:'market_fetch_failed', detail:String(e.message || e) });
+  }
+});
+
+const newsCache = new Map();
+
+function decodeHtml(str='') {
+  return String(str)
+    .replace(/<!\[CDATA\[|\]\]>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+app.get('/market/news', async (req, res) => {
+  try {
+    const raw = String(req.query.tickers || '');
+    const limit = Math.min(20, Math.max(1, Number(req.query.limit || 12)));
+    const tickers = [...new Set(raw.split(',').map(t => t.trim().toUpperCase()).filter(Boolean))].slice(0, 12);
+
+    if (!tickers.length) return res.json({ ok: true, news: [] });
+
+    const cacheKey = `${tickers.join(',')}|${limit}`;
+    const now = Date.now();
+    const cached = newsCache.get(cacheKey);
+    if (cached && now - cached.ts < 5 * 60 * 1000) {
+      return res.json({ ok: true, news: cached.data, cached: true });
+    }
+
+    const out = [];
+
+    for (const ticker of tickers) {
+      const q = encodeURIComponent(`${ticker} mercado financeiro`);
+      const url = `https://news.google.com/rss/search?q=${q}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
+
+      try {
+        const xml = await fetchText(url, 10000);
+        const itemMatches = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
+
+        for (const item of itemMatches.slice(0, 4)) {
+          const title = decodeHtml((item.match(/<title>([\s\S]*?)<\/title>/i) || [])[1] || '').trim();
+          const link = decodeHtml((item.match(/<link>([\s\S]*?)<\/link>/i) || [])[1] || '').trim();
+          const pubDate = decodeHtml((item.match(/<pubDate>([\s\S]*?)<\/pubDate>/i) || [])[1] || '').trim();
+          const source = decodeHtml((item.match(/<source[^>]*>([\s\S]*?)<\/source>/i) || [])[1] || '').trim() || 'Google News';
+
+          if (!title || !link) continue;
+          out.push({ ticker, title, url: link, source, time: pubDate ? new Date(pubDate).toISOString() : null });
+        }
+      } catch {
+        // segue para o próximo ticker
+      }
+    }
+
+    const dedup = [];
+    const seen = new Set();
+    for (const n of out) {
+      if (seen.has(n.url)) continue;
+      seen.add(n.url);
+      dedup.push(n);
+    }
+
+    dedup.sort((a, b) => (new Date(b.time || 0).getTime()) - (new Date(a.time || 0).getTime()));
+    const data = dedup.slice(0, limit);
+
+    newsCache.set(cacheKey, { ts: now, data });
+    return res.json({ ok: true, news: data, cached: false });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: 'news_fetch_failed', detail: String(e.message || e) });
   }
 });
 
