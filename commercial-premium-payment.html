@@ -13,32 +13,51 @@
     .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
     a.btn,button{appearance:none;text-decoration:none;background:var(--btn);color:var(--text);border:1px solid var(--btnLine);border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center}
     .ghost{background:transparent;border-color:#3a4f96}
-    input{width:100%;padding:9px;margin:6px 0;border-radius:9px;border:1px solid #3a5194;background:#0f1731;color:#fff}
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>Assinatura Premium</h1>
-    <p class="muted">Para criar cadastro premium, primeiro conclua o pagamento no Mercado Pago.</p>
-    <input id="email" placeholder="E-mail usado no pagamento"/>
+    <h1>Pagamento Premium</h1>
+    <p class="muted">Acesso bloqueado para não cadastrados. Conclua o pagamento para receber a contra senha (simulação).</p>
     <div class="row">
       <a class="btn" target="_blank" rel="noopener noreferrer" href="https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=358e53cb7ce64ca088f82c94f82bf508">Ir para pagamento no Mercado Pago</a>
-      <button id="doneBtn">Já paguei, continuar</button>
+      <button id="doneBtn">Já paguei, gerar contra senha</button>
       <a class="btn ghost" href="commercial-auth.html">Voltar ao Login</a>
     </div>
     <p id="status" class="muted" style="margin-top:10px"></p>
   </div>
 <script>
-const emailEl = document.getElementById('email');
 const statusEl = document.getElementById('status');
 const params = new URLSearchParams(location.search);
-emailEl.value = params.get('email') || '';
+const email = String(params.get('email') || '').trim().toLowerCase();
+
+function genCode(){
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function setCounterPassword(email, code){
+  const map = JSON.parse(localStorage.getItem('bitdash_counterpass_map') || '{}');
+  const pending = JSON.parse(sessionStorage.getItem('bitdash_pending_auth') || 'null');
+  map[email] = {
+    code,
+    ts: Date.now(),
+    password: pending && pending.email === email ? pending.password : null
+  };
+  localStorage.setItem('bitdash_counterpass_map', JSON.stringify(map));
+}
 
 document.getElementById('doneBtn').onclick = ()=>{
-  const email = String(emailEl.value||'').trim().toLowerCase();
-  if (!email || !email.includes('@')) { statusEl.textContent='Informe um e-mail válido.'; return; }
-  localStorage.setItem('bitdash_paid_record', JSON.stringify({ email, ts: Date.now(), source:'mp_checkout' }));
-  location.href = `commercial-payment-approved.html?email=${encodeURIComponent(email)}&paid=1`;
+  if (!email || !email.includes('@')) {
+    statusEl.textContent = 'E-mail inválido. Volte ao login e tente novamente.';
+    return;
+  }
+
+  const code = genCode();
+  setCounterPassword(email, code);
+
+  alert(`SIMULAÇÃO: contra senha gerada para ${email}: ${code}`);
+  location.href = `commercial-payment-approved.html?email=${encodeURIComponent(email)}`;
 };
 </script>
-</body></html>
+</body>
+</html>
