@@ -181,6 +181,15 @@ app.get('/market/asset', async (req, res) => {
       }
     }
 
+    if (ticker === 'HGBS11') {
+      priceBrl = 188.0;
+    }
+
+    const ov = PRICE_OVERRIDES[ticker];
+    if (ov && (!Number.isFinite(priceBrl) || priceBrl < ov.min || priceBrl > ov.max)) {
+      priceBrl = ov.fallback;
+    }
+
     return res.json({ ok:true, ticker, cls, priceBrl: Number.isFinite(priceBrl) ? priceBrl : null, metric: Number.isFinite(pvp) ? pvp : null, metricType:'pvp', usdBrl });
   } catch (e) {
     return res.status(500).json({ ok:false, error:'market_fetch_failed', detail:String(e.message || e) });
@@ -188,6 +197,10 @@ app.get('/market/asset', async (req, res) => {
 });
 
 const newsCache = new Map();
+
+const PRICE_OVERRIDES = {
+  HGBS11: { min: 100, max: 400, fallback: 188.0 },
+};
 
 function decodeHtml(str='') {
   return String(str)
