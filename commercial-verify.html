@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Confirmar Contra Senha</title>
+<style>
+body{margin:0;background:#0b1020;color:#e8edff;font-family:Inter,Segoe UI,Arial;padding:20px}
+.card{background:#121a33;border:1px solid #2b3d72;border-radius:14px;padding:14px;max-width:620px}
+input{width:100%;padding:9px;margin:6px 0;border-radius:9px;border:1px solid #3a5194;background:#0f1731;color:#fff}
+button{background:#1b2d5e;color:#fff;border:1px solid #3d58a6;border-radius:9px;padding:8px 12px;cursor:pointer}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.muted{color:#9aa7d8}
+</style></head><body>
+<h1 style="margin-top:0">Confirmação de E-mail</h1>
+<div class="card">
+  <div class="muted">Etapa 2: aplique sua contra senha para validar o e-mail.</div>
+  <input id="email" placeholder="E-mail"/>
+  <input id="code" placeholder="Contra senha (6 dígitos)"/>
+  <div id="devHint" class="muted" style="margin:4px 0 10px;"></div>
+  <div class="row">
+    <button id="verify">Confirmar contra senha</button>
+    <button onclick="location.href='commercial-auth.html'">Voltar</button>
+  </div>
+  <div id="status" class="muted" style="margin-top:10px;"></div>
+</div>
+<script>
+const API_HOST = (!location.hostname || ['localhost','127.0.0.1'].includes(location.hostname)) ? '192.168.1.105' : location.hostname;
+const API_PROTO = location.protocol === 'file:' ? 'http:' : location.protocol;
+const API = `${API_PROTO}//${API_HOST}:8001`;
+const params = new URLSearchParams(location.search);
+const emailEl = document.getElementById('email');
+const codeEl = document.getElementById('code');
+const statusEl = document.getElementById('status');
+statusEl.textContent = `Conectando em: ${API}`;
+const devHint = document.getElementById('devHint');
+
+emailEl.value = params.get('email') || '';
+const devCode = params.get('devCode') || '';
+if (devCode) devHint.textContent = `Código de teste (dev): ${devCode}`;
+
+async function api(path, method='GET', body){
+  try {
+    const r = await fetch(API+path, {
+      method,
+      headers: {'Content-Type':'application/json'},
+      credentials: 'include',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    let j={}; try{ j=await r.json(); }catch{}
+    if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
+    return j;
+  } catch (e) {
+    const users = JSON.parse(localStorage.getItem('bitdash_users')||'{}');
+    if (path==='/auth/verify' && method==='POST') {
+      const u = users[body.email];
+      if (!u || String(u.code)!==String(body.code)) throw new Error('invalid_or_expired_code');
+      u.verified = true;
+      users[body.email] = u;
+      localStorage.setItem('bitdash_users', JSON.stringify(users));
+      return { ok:true };
+    }
+    throw e;
+  }
+}
+
+document.getElementById('verify').onclick = async ()=>{
+  const email = emailEl.value.trim().toLowerCase();
+  const code = codeEl.value.trim();
+  if(!email || !code){ statusEl.textContent='Informe e-mail e contra senha.'; return; }
+  try{
+    await api('/auth/verify','POST',{email,code});
+    statusEl.textContent='E-mail confirmado. Redirecionando para login...';
+    setTimeout(()=>location.href=`commercial-auth.html?email=${encodeURIComponent(email)}`,700);
+  }catch(e){ statusEl.textContent = `Erro na confirmação: ${e.message}`; }
+};
+</script>
+</body></html>

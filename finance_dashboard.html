@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Financeiro - Crlages</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #121a33;
+      --text: #e8ecff;
+      --muted: #9aa7d8;
+      --accent: #6ea8fe;
+      --ok: #35d07f;
+      --warn: #ffcc66;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #0b1020, #0d1328);
+      color: var(--text);
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+      padding: 24px;
+    }
+    h1, h2, h3 { margin: 0 0 10px; }
+    .muted { color: var(--muted); }
+    .grid { display: grid; gap: 16px; }
+    .cards { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .two { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    .card {
+      background: var(--card);
+      border: 1px solid #1e2b54;
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,.18);
+    }
+    .buy-box { border-left: 6px solid var(--ok); }
+    .wait-box { border-left: 6px solid var(--warn); }
+    .dont-box { border-left: 6px solid #ff6b6b; }
+    .semaforo-row { margin: 10px 0 14px; }
+    .semaforo-label { font-size: .9rem; margin-bottom: 6px; color: #dce5ff; }
+    .semaforo-track { display:flex; width:100%; height:22px; border-radius:999px; overflow:hidden; border:1px solid #2a396f; }
+    .seg-green { background:#26c76f; width:33.3%; display:flex; align-items:center; justify-content:center; color:#062613; font-weight:700; font-size:.78rem; }
+    .seg-yellow { background:#ffcc33; width:33.3%; display:flex; align-items:center; justify-content:center; color:#3d2d00; font-weight:700; font-size:.78rem; }
+    .seg-red { background:#ff4d4f; width:33.4%; display:flex; align-items:center; justify-content:center; color:#3b0405; font-weight:700; font-size:.78rem; }
+    .decision { padding: 3px 8px; border-radius: 999px; font-weight: 700; font-size: .78rem; display: inline-block; }
+    .d-buy { background: rgba(38,199,111,.18); color:#7af3b2; }
+    .d-wait { background: rgba(255,204,51,.2); color:#ffd86a; }
+    .d-avoid { background: rgba(255,77,79,.2); color:#ff9a9b; }
+    .pvpin { width: 90px; padding: 4px 6px; border-radius: 8px; border:1px solid #30427a; background:#0e1733; color:#fff; }
+    .kpi { font-size: 1.5rem; font-weight: 700; margin-top: 8px; }
+    .small { font-size: .92rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+    th, td { padding: 8px; border-bottom: 1px solid #22305f; text-align: left; }
+    th { color: var(--muted); font-weight: 600; }
+    .pill { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .82rem; }
+    .ok { background: rgba(53,208,127,.15); color: var(--ok); }
+    .warn { background: rgba(255,204,102,.15); color: var(--warn); }
+    ul { margin: 8px 0 0 18px; }
+    li { margin: 6px 0; }
+  </style>
+</head>
+<body>
+  <h1>Dashboard Financeiro</h1>
+  <div class="muted">Snapshot baseado nos valores enviados por você.</div>
+
+  <div class="grid cards" style="margin-top:16px;">
+    <div class="card">
+      <div class="small muted">Patrimônio Total (estimado)</div>
+      <div class="kpi">R$ 367.655,08</div>
+    </div>
+    <div class="card">
+      <div class="small muted">Liquidez imediata (Nubank + 99Pay + MP)</div>
+      <div class="kpi">R$ 49.650,31</div>
+      <div class="small muted">13,5% do total</div>
+    </div>
+    <div class="card">
+      <div class="small muted">Exposição Cripto (Trezor + Binance + USDT)</div>
+      <div class="kpi">R$ 64.883,00</div>
+      <div class="small muted">17,6% do total</div>
+    </div>
+    <div class="card">
+      <div class="small muted">Fundos + Ações (Brasil)</div>
+      <div class="kpi">R$ 225.864,77</div>
+      <div class="small muted">61,4% do total</div>
+    </div>
+  </div>
+
+  <div class="grid two" style="margin-top:16px;">
+    <div class="card">
+      <h3>Alocação por bloco (barras horizontais)</h3>
+      <div style="max-width:520px; margin:0;">
+        <canvas id="allocChart" height="180"></canvas>
+      </div>
+      <div class="small muted" style="text-align:center; margin-top:8px;">Visual em barras para leitura mais clara</div>
+    </div>
+    <div class="card">
+      <h3>Leitura rápida</h3>
+      <div class="pill ok">Pontos fortes</div>
+      <ul>
+        <li>Boa diversificação em classes (caixa, fundos, ações, cripto, exterior).</li>
+        <li>Liquidez de curto prazo confortável (~13,5%).</li>
+        <li>Boa presença em FIIs e ações com foco em dividendos.</li>
+      </ul>
+      <div class="pill warn" style="margin-top:10px;">Atenções</div>
+      <ul>
+        <li>Cripto em ~17,6% pode ser alta para perfil conservador/moderado.</li>
+        <li>Fundos em ~50% do patrimônio: revisar taxas e performance líquida.</li>
+        <li>Muitas posições pequenas em ações BR podem reduzir eficiência.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="grid two" style="margin-top:16px;">
+    <div class="card">
+      <h3>Recomendações práticas (próximos 30 dias)</h3>
+      <ul>
+        <li>Definir sua meta de alocação (ex.: Caixa 10-15%, Cripto 8-12%, Exterior 15-25%).</li>
+        <li>Revisar fundos: manter os que batem benchmark com taxa aceitável.</li>
+        <li>Consolidar ações muito pequenas para simplificar carteira.</li>
+        <li>Mapear risco cambial: Avenue + cripto já dão proteção em dólar.</li>
+        <li>Criar regra de rebalanceamento (a cada 6 meses ou desvio >20%).</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Inventário de posições (quantidade)</h3>
+      <div class="small muted">FIIs (15 ativos), Ações BR (26 ativos), ETFs EUA (2 ativos)</div>
+      <table style="margin-top:10px;">
+        <thead><tr><th>Grupo</th><th>Ativos (quantidade)</th></tr></thead>
+        <tbody>
+          <tr><td>FIIs</td><td>IRIM11 244, RZTR11 187, KNCA11 174, BRCO11 79, HGLG11 64, VILG11 139, XPLG11 81, BTLG11 80, HGRU11 99, HGBS11 680, VISC11 72, KNRI11 65, KDIF11 80, CPTS11 886, MXRF11 620</td></tr>
+          <tr><td>Ações BR</td><td>KLBN11 279, TASA4 1079, ITSA3 460, CMIG4 234, BBAS3 165, PETR4 126, WEGE3 36, RAIZ4 531, PETZ3 270, VALE3 20, CSAN3 122, AURE3 115, LIGT3 222, SAPR4 126, AGRO3 17, UNIP3 6, TAEE11 7, JBSS3 6, GGBR4 13, CPLE6 19, CSMG3 7, AXIA3 4, CSNA3 1, MGLU3 11, OIBR3 16, IRBR3 14</td></tr>
+          <tr><td>ETFs EUA</td><td>IVV 3, SCHD 10</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  
+
+  <div class="card" style="margin-top:16px;">
+    <h3>Painel de decisão instantânea (sem cálculo manual)</h3>
+    <div class="small muted">Preencha apenas o P/VP atual de cada FII. O dashboard responde sozinho: COMPRAR FORTE, COMPRAR NORMAL ou EVITAR.</div>
+    <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+      <button id="autoPvpBtn" style="padding:7px 12px; border-radius:8px; border:1px solid #3552a3; background:#1a2a57; color:#e8ecff; cursor:pointer;">Atualizar P/VP automático</button>
+      <span id="autoPvpStatus" class="small muted">Fonte: Investidor10 (via proxy de leitura)</span>
+    </div>
+    <table style="margin-top:8px;">
+      <thead><tr><th>FII</th><th>P/VP atual</th><th>Decisão</th><th>Motivo</th></tr></thead>
+      <tbody id="fiiDecisionBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h3>Painel de decisão automática — Ações BR + ETFs EUA</h3>
+    <div class="small muted">Mesma lógica objetiva: sem cálculo manual. Clique no botão e veja o sinal.</div>
+    <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+      <button id="autoPlBtn" style="padding:7px 12px; border-radius:8px; border:1px solid #3552a3; background:#1a2a57; color:#e8ecff; cursor:pointer;">Atualizar P/L automático</button>
+      <span id="autoPlStatus" class="small muted">Fonte: Investidor10 (ações + ETFs globais, via proxy de leitura)</span>
+    </div>
+    <table style="margin-top:8px;">
+      <thead><tr><th>Ativo</th><th>P/L atual</th><th>Decisão</th><th>Motivo</th></tr></thead>
+      <tbody id="stockDecisionBody"></tbody>
+    </table>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h3>Base de valores informados</h3>
+    <table>
+      <thead><tr><th>Conta/Classe</th><th>Valor</th><th>%</th></tr></thead>
+      <tbody>
+        <tr><td>Nubank</td><td>R$ 9.000,00</td><td>2,45%</td></tr>
+        <tr><td>99 Pay</td><td>R$ 5.000,00</td><td>1,36%</td></tr>
+        <tr><td>Trezor</td><td>R$ 49.108,00</td><td>13,36%</td></tr>
+        <tr><td>Binance</td><td>R$ 12.259,00</td><td>3,33%</td></tr>
+        <tr><td>USDT</td><td>R$ 3.516,00</td><td>0,96%</td></tr>
+        <tr><td>Avenue</td><td>R$ 27.257,00</td><td>7,41%</td></tr>
+        <tr><td>Fundos</td><td>R$ 183.969,08</td><td>50,04%</td></tr>
+        <tr><td>Ações</td><td>R$ 41.895,69</td><td>11,40%</td></tr>
+        <tr><td>Mercado Pago</td><td>R$ 35.650,31</td><td>9,70%</td></tr>
+      </tbody>
+    </table>
+    <p class="small muted" style="margin-top:10px;">Obs.: análise educacional, não é recomendação individual de investimento.</p>
+  </div>
+
+  <script>
+    const ctx = document.getElementById('allocChart');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Fundos', 'Ações BR', 'Avenue', 'Cripto total', 'Liquidez imediata'],
+        datasets: [{
+          data: [183969.08, 41895.69, 27257, 64883, 49650.31],
+          backgroundColor: ['#5aa2ff', '#6dd3a0', '#f6c15a', '#c48cff', '#8bd1ff'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        scales: {
+          x: {
+            ticks: { color: '#dce5ff' },
+            grid: { color: 'rgba(120,150,220,.28)' },
+            border: { color: 'rgba(120,150,220,.45)' }
+          },
+          y: {
+            ticks: { color: '#dce5ff' },
+            grid: { color: 'rgba(120,150,220,.18)' },
+            border: { color: 'rgba(120,150,220,.45)' }
+          }
+        },
+        datasets: { bar: { barPercentage: 0.5, categoryPercentage: 0.7 } },
+        plugins: { legend: { labels: { color: '#e8ecff' } } }
+      }
+    });
+
+    const fiiRules = {
+      IRIM11: { g:0.90, y:1.00, why:'Papel/high yield com desconto ajuda retorno do reinvestimento.' },
+      RZTR11: { g:0.90, y:1.00, why:'Agro/FII específico; comprar com margem melhora segurança.' },
+      KNCA11: { g:0.90, y:1.00, why:'Papel; preço abaixo do patrimonial tende a melhorar ponto de entrada.' },
+      BRCO11: { g:0.95, y:1.05, why:'Tijolo logístico; desconto protege contra oscilações.' },
+      HGLG11: { g:0.95, y:1.05, why:'Tijolo logístico de qualidade; preço importa na renda futura.' },
+      VILG11: { g:0.95, y:1.05, why:'Tijolo logístico; prefira acumular com desconto.' },
+      XPLG11: { g:0.95, y:1.05, why:'Tijolo logístico; faixa verde melhora relação risco/retorno.' },
+      BTLG11: { g:0.95, y:1.05, why:'Logística; disciplina de preço aumenta eficiência do aporte.' },
+      HGRU11: { g:0.95, y:1.05, why:'Renda urbana; evitar pagar prêmio muito alto.' },
+      HGBS11: { g:0.90, y:1.00, why:'Shopping; margem de segurança maior é desejável.' },
+      VISC11: { g:0.90, y:1.00, why:'Shopping; comprar barato aumenta potencial de renda futura.' },
+      KNRI11: { g:0.95, y:1.05, why:'Híbrido tijolo; priorize verde para melhorar o yield de entrada.' },
+      KDIF11: { g:0.90, y:1.00, why:'Infra/papel; desconto reduz risco de entrada.' },
+      CPTS11: { g:0.90, y:1.00, why:'Papel/estruturado; disciplina de preço é essencial.' },
+      MXRF11: { g:0.90, y:1.00, why:'Papel/híbrido; faixa verde tende a ser melhor ponto de aporte.' },
+    };
+
+    const tbody = document.getElementById('fiiDecisionBody');
+
+    async function fetchPvpFromWeb(ticker) {
+      const lower = ticker.toLowerCase();
+      const url = `https://r.jina.ai/http://investidor10.com.br/fiis/${lower}/`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('falha no fetch');
+      const txt = await res.text();
+      const m = txt.match(/P\/VP\s*([0-9]+,[0-9]+)/i) || txt.match(/P\/VP[^0-9]*([0-9]+,[0-9]+)/i);
+      if (!m) throw new Error('P/VP não encontrado');
+      return Number(m[1].replace(',', '.'));
+    }
+
+    document.getElementById('autoPvpBtn').addEventListener('click', async () => {
+      const status = document.getElementById('autoPvpStatus');
+      status.textContent = 'Atualizando P/VP...';
+      let ok = 0, fail = 0;
+      for (const ticker of Object.keys(fiiRules)) {
+        const input = document.getElementById(`pv_${ticker}`);
+        try {
+          const v = await fetchPvpFromWeb(ticker);
+          input.value = v.toFixed(2);
+          input.dispatchEvent(new Event('input'));
+          ok++;
+        } catch (e) {
+          fail++;
+        }
+      }
+      status.textContent = `Atualização concluída: ${ok} ativos atualizados, ${fail} falhas.`;
+    });
+
+    Object.entries(fiiRules).forEach(([ticker, rule]) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${ticker}</strong></td>
+        <td><input class="pvpin" type="number" step="0.01" placeholder="ex: 0.93" id="pv_${ticker}"></td>
+        <td id="dec_${ticker}"><span class="decision d-wait">AGUARDANDO P/VP</span></td>
+        <td id="why_${ticker}" class="small muted">${rule.why}</td>
+      `;
+      tbody.appendChild(tr);
+      const input = tr.querySelector('input');
+      input.addEventListener('input', () => {
+        const v = Number(input.value);
+        const dec = document.getElementById(`dec_${ticker}`);
+        if (!input.value) {
+          dec.innerHTML = '<span class="decision d-wait">AGUARDANDO P/VP</span>';
+          return;
+        }
+        if (v <= rule.g) dec.innerHTML = '<span class="decision d-buy">🟢 COMPRAR FORTE</span>';
+        else if (v <= rule.y) dec.innerHTML = '<span class="decision d-wait">🟡 COMPRAR NORMAL</span>';
+        else dec.innerHTML = '<span class="decision d-avoid">🔴 EVITAR AGORA</span>';
+      });
+    });
+
+
+    const stockRules = {
+      KLBN11:{g:10,y:16,why:'Comprar com múltiplo baixo aumenta margem de segurança.'},
+      TASA4:{g:10,y:16,why:'Cíclica; preço de entrada faz muita diferença.'},
+      ITSA3:{g:10,y:16,why:'Tese de dividendos favorece múltiplos mais comportados.'},
+      CMIG4:{g:10,y:16,why:'Utility: priorize previsibilidade e preço justo.'},
+      BBAS3:{g:8,y:12,why:'Banco grande: disciplina no múltiplo melhora retorno.'},
+      PETR4:{g:5,y:8,why:'Commodities exigem entrada com desconto.'},
+      WEGE3:{g:25,y:35,why:'Empresa premium aceita múltiplo maior; evitar euforia.'},
+      RAIZ4:{g:8,y:12,why:'Setor sensível a ciclo; preço importa.'},
+      PETZ3:{g:12,y:20,why:'Growth: exigir margem de segurança.'},
+      VALE3:{g:4,y:7,why:'Mineradora é cíclica; compre em faixas descontadas.'},
+      IVV:{g:18,y:25,why:'ETF amplo EUA: entrada por valuation reduz risco.'},
+      SCHD:{g:16,y:23,why:'ETF de dividendos: preço de entrada impacta yield futuro.'}
+    };
+
+    // fix typo-safe rule for WEGE3
+    stockRules.WEGE3 = { g:25, y:35, why:'Empresa premium aceita múltiplo maior; evitar euforia.' };
+
+    const stockBody = document.getElementById('stockDecisionBody');
+
+    async function fetchPLFromWeb(ticker) {
+      const isEtfUs = ticker === 'IVV' || ticker === 'SCHD';
+      const lower = ticker.toLowerCase();
+      const url = isEtfUs
+        ? `https://r.jina.ai/http://investidor10.com.br/etfs-global/${lower}/`
+        : `https://r.jina.ai/http://investidor10.com.br/acoes/${lower}/`;
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('falha no fetch');
+      const txt = await res.text();
+      // Ações: prioriza P/L. ETFs globais: tenta P/L e depois P/VP.
+      let m = txt.match(/P\/L\s*([0-9]+,[0-9]+)/i) || txt.match(/P\/L[^0-9]*([0-9]+,[0-9]+)/i);
+      if (!m) m = txt.match(/P\/L\s*([0-9]+\.[0-9]+)/i);
+      if (!m) m = txt.match(/P\/VP\s*([0-9]+,[0-9]+)/i) || txt.match(/P\/VP[^0-9]*([0-9]+,[0-9]+)/i);
+      if (!m) throw new Error('Múltiplo não encontrado');
+      return Number(String(m[1]).replace(',', '.'));
+    }
+
+    Object.entries(stockRules).forEach(([ticker, rule]) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${ticker}</strong></td>
+        <td><input class="pvpin" type="number" step="0.01" placeholder="ex: 9.80" id="pl_${ticker}"></td>
+        <td id="pldec_${ticker}"><span class="decision d-wait">AGUARDANDO P/L</span></td>
+        <td class="small muted">${rule.why}</td>
+      `;
+      stockBody.appendChild(tr);
+      const input = tr.querySelector('input');
+      input.addEventListener('input', () => {
+        const v = Number(input.value);
+        const dec = document.getElementById(`pldec_${ticker}`);
+        if (!input.value) { dec.innerHTML = '<span class="decision d-wait">AGUARDANDO P/L</span>'; return; }
+        if (v <= rule.g) dec.innerHTML = '<span class="decision d-buy">🟢 COMPRAR FORTE</span>';
+        else if (v <= rule.y) dec.innerHTML = '<span class="decision d-wait">🟡 COMPRAR NORMAL</span>';
+        else dec.innerHTML = '<span class="decision d-avoid">🔴 EVITAR AGORA</span>';
+      });
+    });
+
+    document.getElementById('autoPlBtn').addEventListener('click', async () => {
+      const status = document.getElementById('autoPlStatus');
+      status.textContent = 'Atualizando P/L...';
+      let ok=0, fail=0;
+      for (const ticker of Object.keys(stockRules)) {
+        const input = document.getElementById(`pl_${ticker}`);
+        try {
+          const v = await fetchPLFromWeb(ticker);
+          input.value = v.toFixed(2);
+          input.dispatchEvent(new Event('input'));
+          ok++;
+        } catch (_) { fail++; }
+      }
+      status.textContent = `Atualização concluída: ${ok} ativos atualizados, ${fail} falhas.`;
+    });
+
+
+  </script>
+</body>
+</html>

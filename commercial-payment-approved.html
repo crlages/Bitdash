@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pagamento Aprovado - Cadastro Premium</title>
+  <style>
+    :root { --bg:#0b1020; --card:#121a33; --text:#e8ecff; --muted:#9aa7d8; --line:#233565; --btn:#1a2a57; --btnLine:#3552a3; }
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:linear-gradient(180deg,#0b1020,#0d1328);color:var(--text);font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;padding:20px}
+    .card{width:100%;max-width:760px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px}
+    .ok{display:inline-block;background:rgba(53,208,127,.16);color:#9cf3c2;padding:5px 10px;border-radius:999px;font-weight:700;margin-bottom:8px}
+    .muted{color:var(--muted)}
+    input{width:100%;padding:9px;margin:6px 0;border-radius:9px;border:1px solid #3a5194;background:#0f1731;color:#fff}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+    button,a.btn{appearance:none;text-decoration:none;background:var(--btn);color:var(--text);border:1px solid var(--btnLine);border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center}
+    .ghost{background:transparent;border-color:#3a4f96}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="ok">✅ Pagamento aprovado</div>
+    <h1 style="margin-top:0">Criar cadastro premium</h1>
+    <p class="muted">Agora crie e-mail e senha. Em produção, a contra senha será enviada por e-mail. Por enquanto, vamos simular mostrando na tela.</p>
+
+    <input id="email" placeholder="E-mail" />
+    <input id="pass" type="password" placeholder="Senha (mínimo 6 caracteres)" />
+    <div class="row">
+      <button id="registerBtn">Cadastrar e gerar contra senha</button>
+      <a class="btn ghost" href="commercial-auth.html">Voltar ao Login</a>
+    </div>
+    <p id="status" class="muted"></p>
+  </div>
+
+<script>
+const API_HOST = (!location.hostname || ['localhost','127.0.0.1'].includes(location.hostname)) ? '192.168.1.105' : location.hostname;
+const API_PROTO = location.protocol === 'file:' ? 'http:' : location.protocol;
+const API = `${API_PROTO}//${API_HOST}:8001`;
+
+const emailEl = document.getElementById('email');
+const passEl = document.getElementById('pass');
+const statusEl = document.getElementById('status');
+const params = new URLSearchParams(location.search);
+emailEl.value = params.get('email') || '';
+
+function paymentOkForEmail(email){
+  try {
+    const rec = JSON.parse(localStorage.getItem('bitdash_paid_record')||'null');
+    if (!rec?.email || !rec?.ts) return false;
+    if (String(rec.email).toLowerCase() !== String(email).toLowerCase()) return false;
+    return (Date.now() - Number(rec.ts)) <= (24*60*60*1000);
+  } catch { return false; }
+}
+
+async function api(path, method='GET', body){
+  try {
+    const r = await fetch(API+path, {
+      method,
+      headers: {'Content-Type':'application/json'},
+      credentials: 'include',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    let j={}; try{ j=await r.json(); }catch{}
+    if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
+    return j;
+  } catch (e) {
+    const users = JSON.parse(localStorage.getItem('bitdash_users')||'{}');
+    if (path==='/auth/register' && method==='POST') {
+      const code = String(Math.floor(100000 + Math.random()*900000));
+      users[body.email] = { password: body.password, verified: false, code };
+      localStorage.setItem('bitdash_users', JSON.stringify(users));
+      return { ok:true, devCode: code };
+    }
+    throw e;
+  }
+}
+
+document.getElementById('registerBtn').onclick = async ()=>{
+  const email = String(emailEl.value||'').trim().toLowerCase();
+  const password = String(passEl.value||'');
+  if (!email || !email.includes('@') || password.length < 6) {
+    statusEl.textContent = 'Preencha e-mail válido e senha com mínimo 6 caracteres.';
+    return;
+  }
+  if (!paymentOkForEmail(email)) {
+    statusEl.textContent = 'Pagamento não confirmado para este e-mail. Volte para a etapa de pagamento.';
+    return;
+  }
+
+  try {
+    const j = await api('/auth/register', 'POST', { email, password });
+    location.href = `commercial-verify.html?email=${encodeURIComponent(email)}&devCode=${encodeURIComponent(j.devCode||'')}`;
+  } catch (e) {
+    statusEl.textContent = `Erro no cadastro: ${e.message}`;
+  }
+};
+</script>
+</body>
+</html>
