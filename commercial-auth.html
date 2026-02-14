@@ -94,14 +94,35 @@ async function loginWithGoogleCredential(credential){
   }
 }
 
-function initGoogleLogin(){
+function initGoogleLogin(attempt = 0){
   const wrap = document.getElementById('googleWrap');
   if (!GOOGLE_CLIENT_ID) {
     wrap.innerHTML = '<span class="muted">Login Google aguardando configuração do Client ID.</span>';
     return;
   }
+
   if (!window.google?.accounts?.id) {
-    wrap.innerHTML = '<span class="muted">SDK do Google não carregou.</span>';
+    // injeta SDK dinamicamente para reduzir problemas de carregamento assíncrono
+    if (!document.getElementById('google-gsi-sdk')) {
+      const s = document.createElement('script');
+      s.id = 'google-gsi-sdk';
+      s.src = 'https://accounts.google.com/gsi/client';
+      s.async = true;
+      s.defer = true;
+      s.onload = () => initGoogleLogin(0);
+      s.onerror = () => {
+        wrap.innerHTML = '<span class="muted">Falha ao carregar SDK Google (rede/bloqueio).</span>';
+      };
+      document.head.appendChild(s);
+    }
+
+    if (attempt < 30) {
+      wrap.innerHTML = '<span class="muted">Carregando login Google...</span>';
+      setTimeout(() => initGoogleLogin(attempt + 1), 250);
+      return;
+    }
+
+    wrap.innerHTML = '<span class="muted">SDK do Google não carregou. Verifique bloqueador/privacidade do navegador.</span>';
     return;
   }
 
@@ -111,6 +132,7 @@ function initGoogleLogin(){
     callback: (resp) => loginWithGoogleCredential(resp.credential),
   });
 
+  wrap.innerHTML = '';
   window.google.accounts.id.renderButton(wrap, {
     type: 'standard',
     theme: 'outline',
