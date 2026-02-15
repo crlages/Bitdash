@@ -12,7 +12,6 @@
     .card{width:100%;max-width:760px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
     h1{margin-top:0}
     .muted{color:var(--muted)}
-    input{width:100%;padding:10px;margin:6px 0;border-radius:9px;border:1px solid #3a5194;background:#0f1731;color:#fff}
     .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
     .sep{margin:12px 0;color:#8ca0de;font-size:.9rem;display:flex;align-items:center;gap:10px}
     .sep::before,.sep::after{content:'';flex:1;height:1px;background:#2d3f74}
@@ -23,17 +22,13 @@
 <body>
   <div class="card">
     <h1>Login Premium</h1>
-    <div class="muted">Se já for cadastrado, entra direto. Se não for, o acesso é bloqueado e você segue para o pagamento.</div>
-
-    <input id="email" placeholder="E-mail"/>
-    <input id="pass" type="password" placeholder="Senha"/>
+    <div class="muted">Entre com Google. O sistema usa a conta já logada no seu navegador/dispositivo quando possível.</div>
 
     <div class="row">
-      <button id="login">Entrar</button>
       <button onclick="location.href='commercial-dashboard.html'">Voltar</button>
     </div>
 
-    <div class="sep">ou</div>
+    <div class="sep">Entrar com Google</div>
     <div id="googleWrap"></div>
 
     <div id="status" class="muted" style="margin-top:10px;"></div>
@@ -42,14 +37,11 @@
 <script>
 const API_HOST = (!location.hostname || ['localhost','127.0.0.1'].includes(location.hostname)) ? '192.168.1.105' : location.hostname;
 const API_PROTO = location.protocol === 'file:' ? 'http:' : location.protocol;
-const API = `${API_PROTO}//${API_HOST}:8001`;
+const DEFAULT_API = `${API_PROTO}//${API_HOST}:8001`;
+const API = (window.BITDASH_API_URL || localStorage.getItem('bitdash_api_url') || DEFAULT_API).replace(/\/$/, '');
 const GOOGLE_CLIENT_ID = '90657228527-vg76ohma7rj6pkpc7p9sk4spk13dlbc1.apps.googleusercontent.com'; // Client ID Web do Google Cloud
 
 const statusEl = document.getElementById('status');
-const emailEl = document.getElementById('email');
-const passEl = document.getElementById('pass');
-const params = new URLSearchParams(location.search);
-emailEl.value = params.get('email') || '';
 
 async function api(path, method='GET', body){
   try {
@@ -63,15 +55,6 @@ async function api(path, method='GET', body){
     if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
     return j;
   } catch (e) {
-    const users = JSON.parse(localStorage.getItem('bitdash_users')||'{}');
-    if (path==='/auth/login' && method==='POST') {
-      const u = users[body.email];
-      if (!u) throw new Error('invalid_credentials');
-      if (!u.verified) throw new Error('email_not_verified');
-      if (u.password !== body.password) throw new Error('invalid_credentials');
-      localStorage.setItem('bitdash_local_user', body.email);
-      return { ok:true };
-    }
     throw e;
   }
 }
@@ -90,6 +73,10 @@ async function loginWithGoogleCredential(credential){
     statusEl.textContent = 'Login Google OK. Redirecionando...';
     setTimeout(()=>location.href='commercial-dashboard.html', 500);
   } catch (e) {
+    if (String(e.message || '').toLowerCase().includes('fetch')) {
+      statusEl.textContent = `Google login falhou: não consegui conectar na API (${API}).`;
+      return;
+    }
     statusEl.textContent = `Google login falhou: ${e.message}`;
   }
 }
@@ -144,34 +131,6 @@ function initGoogleLogin(attempt = 0){
   // tenta usar a conta Google já logada no dispositivo
   window.google.accounts.id.prompt();
 }
-
-document.getElementById('login').onclick = async ()=>{
-  const email = emailEl.value.trim().toLowerCase();
-  const password = passEl.value;
-  if(!email || !password){ statusEl.textContent='Preencha e-mail e senha.'; return; }
-
-  try{
-    await api('/auth/login','POST',{email,password});
-    statusEl.textContent = 'Login OK. Redirecionando...';
-    setTimeout(()=>location.href='commercial-dashboard.html',600);
-  }catch(e){
-    const msg = String(e.message || '');
-
-    if (msg.includes('invalid_credentials')) {
-      sessionStorage.setItem('bitdash_pending_auth', JSON.stringify({ email, password, ts: Date.now() }));
-      statusEl.textContent = 'Usuário não cadastrado. Acesso bloqueado. Redirecionando para pagamento...';
-      setTimeout(()=>location.href=`commercial-premium-payment.html?email=${encodeURIComponent(email)}`,800);
-      return;
-    }
-
-    if (msg.includes('email_not_verified')) {
-      statusEl.textContent = 'Cadastro encontrado, mas ainda não confirmado.';
-      return;
-    }
-
-    statusEl.textContent = `Erro no login: ${e.message}`;
-  }
-};
 
 checkExistingLogin();
 initGoogleLogin();
