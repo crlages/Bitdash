@@ -399,20 +399,61 @@ function decodeHtml(str='') {
 async function marketBatch(request) {
   const body = await request.json().catch(()=>({}));
   const assets = Array.isArray(body?.assets) ? body.assets : [];
-  const usdBrl = 5.2;
 
-  const out = assets.slice(0, 120).map((a) => {
+  let usdBrl = 5.2;
+  try {
+    const fx = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL', { cf: { cacheTtl: 300, cacheEverything: true } }).then(r => r.json());
+    const bid = Number(fx?.USDBRL?.bid);
+    if (Number.isFinite(bid) && bid > 0) usdBrl = bid;
+  } catch {}
+
+  const normalized = assets.slice(0, 120).map((a) => {
     const tickerRaw = String(a?.ticker || '').trim().toUpperCase();
     const clsRaw = String(a?.cls || '').trim().toUpperCase();
     const ticker = tickerRaw === 'BITCOIN' ? 'BTC' : tickerRaw;
     const cls = clsRaw || (ticker.endsWith('11') ? 'FII' : 'ACAO');
+    return { ticker, cls };
+  });
 
+  // Busca em lote no Yahoo para aumentar cobertura sem perder velocidade
+  const yahooSymbols = [...new Set(normalized
+    .filter(a => a.cls !== 'CRIPTO' && /^[A-Z0-9]{4,6}11?$/.test(a.ticker))
+    .map(a => `${a.ticker}.SA`)
+  )];
+
+  const yahooByTicker = {};
+  if (yahooSymbols.length) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2500);
+      const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(yahooSymbols.join(','))}`;
+      const y = await fetch(quoteUrl, { signal: controller.signal, cf: { cacheTtl: 60, cacheEverything: true } }).then(r => r.json());
+      clearTimeout(timeout);
+      const rows = y?.quoteResponse?.result || [];
+      for (const row of rows) {
+        const symbol = String(row?.symbol || '').toUpperCase();
+        const ticker = symbol.replace('.SA', '');
+        const price = Number(row?.regularMarketPrice);
+        const ptb = Number(row?.priceToBook);
+        yahooByTicker[ticker] = {
+          priceBrl: Number.isFinite(price) ? price : null,
+          pvp: Number.isFinite(ptb) ? ptb : null,
+        };
+      }
+    } catch {}
+  }
+
+  const out = normalized.map(({ ticker, cls }) => {
     if (cls === 'CRIPTO') {
       const usd = CRYPTO_FALLBACK[ticker] || null;
       return { ticker, cls, priceBrl: usd ? usd * usdBrl : null, metric: null, metricType:'chg24h', usdBrl };
     }
 
-    return { ticker, cls, priceBrl: PRICE_REF[ticker] ?? null, metric: METRIC_REF[ticker] ?? null, metricType:'pvp', usdBrl };
+    const y = yahooByTicker[ticker];
+    const priceBrl = Number.isFinite(y?.priceBrl) ? y.priceBrl : (PRICE_REF[ticker] ?? null);
+    const metric = Number.isFinite(METRIC_REF[ticker]) ? METRIC_REF[ticker] : (Number.isFinite(y?.pvp) ? y.pvp : null);
+
+    return { ticker, cls, priceBrl, metric, metricType:'pvp', usdBrl };
   });
 
   return json({ ok:true, items: out, usdBrl });
