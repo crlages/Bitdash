@@ -57,12 +57,12 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-16-hybrid</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-16-hybrid2</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
-      <button onclick="location.href='commercial-add-assets.html'">+ Adicionar ativos</button>
-      <button onclick="location.href='commercial-auth.html'" id="authBtn">Login Premium</button>
+      <button id="addAssetsBtn">+ Adicionar ativos</button>
+      <button id="authBtn">Login Premium</button>
       <button id="saveBtn" class="hidden">Salvar carteira (Premium)</button>
       <button id="logoutBtn" class="hidden">Sair</button>
     </div>
@@ -487,6 +487,13 @@ document.getElementById('saveBtn').onclick = async ()=>{
     alert('Erro ao salvar: ' + e.message);
   }
 };
+
+// navegação de botões do topo (evita dependência de onclick inline)
+const addAssetsBtn = document.getElementById('addAssetsBtn');
+if (addAssetsBtn) addAssetsBtn.addEventListener('click', ()=>{ location.href = 'commercial-add-assets.html'; });
+const authBtnEl = document.getElementById('authBtn');
+if (authBtnEl) authBtnEl.addEventListener('click', ()=>{ location.href = 'commercial-auth.html'; });
+
 document.getElementById('logoutBtn').onclick = async ()=>{
   try { await api('/auth/logout','POST',{}); } catch {}
   try { localStorage.removeItem('bitdash_local_user'); } catch {}
