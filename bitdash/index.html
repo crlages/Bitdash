@@ -57,7 +57,7 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable2</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
@@ -362,8 +362,25 @@ async function refresh(){
 
     let ok=0, fail=0, pxOk=0, pxFail=0;
     for (const it of items) {
-      if (Number.isFinite(it.metric)) { metrics[it.ticker] = it.metric; ok++; } else { fail++; }
-      if (Number.isFinite(it.priceBrl)) { marketPrices[it.ticker] = it.priceBrl; pxOk++; } else { pxFail++; }
+      const isCrypto = String(it.cls || '').toUpperCase() === 'CRIPTO';
+
+      // Métrica: para cripto (24h) pode não vir e não conta como falha técnica
+      if (Number.isFinite(it.metric)) {
+        metrics[it.ticker] = it.metric;
+        ok++;
+      } else if (!isCrypto && it.metricType !== 'na') {
+        fail++;
+      }
+
+      // Preço: se API falhar, mantém último preço válido em cache
+      if (Number.isFinite(it.priceBrl)) {
+        marketPrices[it.ticker] = it.priceBrl;
+        pxOk++;
+      } else if (Number.isFinite(marketPrices[it.ticker])) {
+        pxOk++;
+      } else {
+        pxFail++;
+      }
     }
 
     try { localStorage.setItem('bitdash_market_prices', JSON.stringify(marketPrices)); } catch {}

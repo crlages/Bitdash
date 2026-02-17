@@ -440,6 +440,31 @@ async function marketBatch(request) {
     } catch {}
   }
 
+  // Fallback BRAPI para aumentar cobertura quando Yahoo falhar
+  const brapiByTicker = {};
+  const brapiTickers = [...new Set(normalized
+    .filter(a => a.cls !== 'CRIPTO' && /^[A-Z0-9]{2,10}$/.test(a.ticker))
+    .map(a => a.ticker)
+  )];
+  if (brapiTickers.length) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2500);
+      const brapiUrl = `https://brapi.dev/api/quote/${encodeURIComponent(brapiTickers.join(','))}?fundamental=false&dividends=false`;
+      const b = await fetch(brapiUrl, { signal: controller.signal, cf: { cacheTtl: 60, cacheEverything: true } }).then(r => r.json());
+      clearTimeout(timeout);
+      const rows = Array.isArray(b?.results) ? b.results : [];
+      for (const row of rows) {
+        const ticker = String(row?.symbol || '').toUpperCase();
+        const price = Number(row?.regularMarketPrice);
+        if (!ticker) continue;
+        brapiByTicker[ticker] = {
+          priceBrl: Number.isFinite(price) ? price : null,
+        };
+      }
+    } catch {}
+  }
+
   const out = normalized.map(({ ticker, cls }) => {
     if (cls === 'CRIPTO') {
       const usd = CRYPTO_FALLBACK[ticker] || null;
@@ -447,10 +472,14 @@ async function marketBatch(request) {
     }
 
     const y = yahooByTicker[ticker];
-    const priceBrl = Number.isFinite(y?.priceBrl) ? y.priceBrl : (PRICE_REF[ticker] ?? null);
+    const b = brapiByTicker[ticker];
+    const priceBrl = Number.isFinite(y?.priceBrl)
+      ? y.priceBrl
+      : (Number.isFinite(b?.priceBrl) ? b.priceBrl : (PRICE_REF[ticker] ?? null));
     const metric = Number.isFinite(METRIC_REF[ticker]) ? METRIC_REF[ticker] : (Number.isFinite(y?.pvp) ? y.pvp : null);
+    const metricType = Number.isFinite(metric) ? 'pvp' : 'na';
 
-    return { ticker, cls, priceBrl, metric, metricType:'pvp', usdBrl };
+    return { ticker, cls, priceBrl, metric, metricType, usdBrl };
   });
 
   // 2ª camada: tenta preencher apenas os faltantes sem bloquear tudo
