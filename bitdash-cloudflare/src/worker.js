@@ -157,11 +157,12 @@ function getCookie(request, name) {
 }
 
 function setAuthCookie(token) {
-  return `bitdash_token=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${60 * 60 * 24 * 7}`;
+  // cross-site (Pages -> Workers) exige SameSite=None para cookie em fetch com credentials
+  return `bitdash_token=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=${60 * 60 * 24 * 7}`;
 }
 
 function clearAuthCookie() {
-  return 'bitdash_token=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0';
+  return 'bitdash_token=; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=0';
 }
 
 async function authGoogle(request, env) {

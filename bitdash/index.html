@@ -60,11 +60,12 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable9</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable11</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
       <button id="addAssetsBtn">+ Adicionar ativos</button>
+      <button id="clearBtn">Limpar carteira</button>
       <button id="authBtn">Login Premium</button>
       <button id="saveBtn" class="hidden">Salvar carteira (Premium)</button>
       <button id="logoutBtn" class="hidden">Sair</button>
@@ -207,34 +208,60 @@ async function api(path, method='GET', body){
 
 function isPremium(){ return !!currentUser?.email; }
 
-async function loadPortfolio(){
-  // prioridade para ativos recém-adicionados na tela anterior
-  const inbound = JSON.parse(sessionStorage.getItem('inboundPortfolio')||'null');
-  if (inbound?.length) {
-    sessionStorage.setItem('freePortfolio', JSON.stringify(inbound));
-    sessionStorage.removeItem('inboundPortfolio');
-    return inbound;
+function mergePortfolio(base=[], inbound=[]){
+  const m = new Map();
+  for (const a of base) {
+    const t = normalizeTicker(a.ticker);
+    const qty = Number(a.qty || 0);
+    if (!t || !Number.isFinite(qty) || qty <= 0) continue;
+    m.set(t, { ticker:t, qty, cls: classify(t) });
   }
+  for (const a of inbound) {
+    const t = normalizeTicker(a.ticker);
+    const qty = Number(a.qty || 0);
+    if (!t || !Number.isFinite(qty) || qty <= 0) continue;
+    const prev = m.get(t);
+    const nextQty = (prev?.qty || 0) + qty;
+    m.set(t, { ticker:t, qty: nextQty, cls: classify(t) });
+  }
+  return [...m.values()];
+}
+
+async function loadPortfolio(){
+  let base = null;
 
   try {
     const me = await api('/auth/me');
     currentUser = me.user;
     const saved = await api('/portfolio');
-    if (saved?.portfolio?.length) return saved.portfolio;
+    if (saved?.portfolio?.length) base = saved.portfolio;
   } catch {
     const localEmail = getLocalPremiumEmail();
     currentUser = localEmail ? { email: localEmail, localPremium: true } : null;
     if (localEmail) {
       try {
         const localPort = JSON.parse(localStorage.getItem(`bitdash_portfolio_${localEmail}`) || 'null');
-        if (Array.isArray(localPort) && localPort.length) return localPort;
+        if (Array.isArray(localPort) && localPort.length) base = localPort;
       } catch {}
     }
   }
 
-  const free = JSON.parse(sessionStorage.getItem('freePortfolio')||'null');
-  if (free?.length) return free;
-  return DEFAULT_PORT.slice();
+  if (!base) {
+    const free = JSON.parse(sessionStorage.getItem('freePortfolio')||'null');
+    if (free?.length) base = free;
+  }
+  if (!base) base = DEFAULT_PORT.slice();
+
+  // adiciona ativos recém-inseridos SEM perder carteira existente
+  const inbound = JSON.parse(sessionStorage.getItem('inboundPortfolio')||'null');
+  if (inbound?.length) {
+    const merged = mergePortfolio(base, inbound);
+    sessionStorage.setItem('freePortfolio', JSON.stringify(merged));
+    sessionStorage.removeItem('inboundPortfolio');
+    return merged;
+  }
+
+  return base;
 }
 
 function normalizeTicker(t){ return t==='BITCOIN' ? 'BTC' : t; }
@@ -530,6 +557,31 @@ const addAssetsBtn = document.getElementById('addAssetsBtn');
 if (addAssetsBtn) addAssetsBtn.addEventListener('click', ()=>{ location.href = 'commercial-add-assets.html'; });
 const authBtnEl = document.getElementById('authBtn');
 if (authBtnEl) authBtnEl.addEventListener('click', ()=>{ location.href = 'commercial-auth.html'; });
+
+
+document.getElementById('clearBtn').onclick = async ()=>{
+  const ok = confirm('Tem certeza que deseja limpar a carteira atual?');
+  if (!ok) return;
+
+  portfolio = [];
+  render();
+
+  if (isPremium()) {
+    try {
+      await api('/portfolio','POST',{ portfolio });
+      alert('Carteira limpa e salva com sucesso.');
+      return;
+    } catch (e) {
+      alert('Carteira limpa localmente, mas não consegui salvar na nuvem: ' + e.message);
+    }
+  }
+
+  try { sessionStorage.setItem('freePortfolio', JSON.stringify(portfolio)); } catch {}
+  const localEmail = getLocalPremiumEmail();
+  if (localEmail) {
+    try { localStorage.setItem(`bitdash_portfolio_${localEmail}`, JSON.stringify(portfolio)); } catch {}
+  }
+};
 
 document.getElementById('logoutBtn').onclick = async ()=>{
   try { await api('/auth/logout','POST',{}); } catch {}
