@@ -222,7 +222,12 @@ async function authMe(request, env) {
   const session = await parseSession(request, env.JWT_SECRET);
   if (!session) return json({ ok: false, error: 'not_authenticated' }, 401);
   const sub = await env.DB.prepare('SELECT status FROM subscriptions WHERE email = ?').bind(session.email).first();
-  return json({ ok: true, user: { email: session.email, name: session.name || null }, premium: sub?.status === 'approved', premiumStatus: sub?.status || 'pending' });
+  const token = await createSessionCookie({
+    email: session.email,
+    name: session.name || null,
+    exp: Date.now() + 7 * 24 * 60 * 60 * 1000,
+  }, env.JWT_SECRET);
+  return json({ ok: true, token, user: { email: session.email, name: session.name || null }, premium: sub?.status === 'approved', premiumStatus: sub?.status || 'pending' });
 }
 
 async function authLogout() {

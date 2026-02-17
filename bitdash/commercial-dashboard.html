@@ -60,7 +60,7 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable19</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable21</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
@@ -206,6 +206,7 @@ async function api(path, method='GET', body){
     body: body ? JSON.stringify(body) : undefined,
   });
   let j={}; try{ j=await r.json(); }catch{}
+  if (j?.token) { try { localStorage.setItem('bitdash_auth_token', j.token); } catch {} }
   if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
   return j;
 }
@@ -246,7 +247,7 @@ async function loadPortfolio(){
   if (currentUser?.email) {
     try {
       const saved = await api('/portfolio');
-      if (Array.isArray(saved?.portfolio)) base = saved.portfolio; // [] é válido
+      if (Array.isArray(saved?.portfolio)) { base = saved.portfolio; try { localStorage.removeItem('bitdash_portfolio_cleared'); } catch {} } // [] é válido
     } catch {}
   }
 
@@ -270,7 +271,10 @@ async function loadPortfolio(){
   }
 
   // 5) primeira execução sem histórico
-  if (base == null) base = DEFAULT_PORT.slice();
+  if (base == null) {
+    const cleared = String(localStorage.getItem('bitdash_portfolio_cleared') || '') === '1';
+    base = cleared ? [] : DEFAULT_PORT.slice();
+  }
 
   // 6) inbound complementar (merge)
   let inbound = null;
@@ -532,6 +536,7 @@ document.getElementById('clearBtn').onclick = async ()=>{
 
   try { sessionStorage.setItem('freePortfolio', JSON.stringify(portfolio)); } catch {}
   try { localStorage.setItem('bitdash_portfolio_draft', JSON.stringify(portfolio)); } catch {}
+  try { localStorage.setItem('bitdash_portfolio_cleared', '1'); } catch {}
   const localEmail = getLocalPremiumEmail();
   if (localEmail) {
     try { localStorage.setItem(`bitdash_portfolio_${localEmail}`, JSON.stringify(portfolio)); } catch {}

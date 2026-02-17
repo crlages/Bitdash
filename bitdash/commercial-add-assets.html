@@ -106,6 +106,7 @@ async function api(path, method='GET', body){
     body: body ? JSON.stringify(body) : undefined,
   });
   let j={}; try{ j=await r.json(); }catch{}
+  if (j?.token) { try { localStorage.setItem('bitdash_auth_token', j.token); } catch {} }
   if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
   return j;
 }
@@ -268,48 +269,50 @@ document.getElementById('analyzeBtn').onclick = async () => {
 
 document.getElementById('confirmBtn').onclick = async () => {
   const status = document.getElementById('status');
-  if (!approvedItems.length) {
-    status.textContent = 'Nenhum ativo aprovado para envio.';
-    return;
-  }
-
-  // Base determinística: snapshot da carteira atual (vindo do dashboard) + fallback sessão
-  let base = [];
   try {
-    const snap = JSON.parse(sessionStorage.getItem('bitdash_portfolio_snapshot') || 'null');
-    if (Array.isArray(snap)) base = snap;
-  } catch {}
-  if (!base.length) {
-    try {
-      const snapLocal = JSON.parse(localStorage.getItem('bitdash_portfolio_snapshot') || 'null');
-      if (Array.isArray(snapLocal)) base = snapLocal;
-    } catch {}
-  }
-  if (!base.length) {
-    try {
-      const free = JSON.parse(sessionStorage.getItem('freePortfolio') || 'null');
-      if (Array.isArray(free)) base = free;
-    } catch {}
-  }
-
-  const merged = mergeByTicker(base, approvedItems);
-  const payload = JSON.stringify(merged);
-
-  // Sempre garante handoff para dashboard
-  try { sessionStorage.setItem('inboundPortfolio', payload); } catch {}
-  try { localStorage.setItem('bitdash_inbound_portfolio', payload); } catch {}
-  try { localStorage.setItem('bitdash_portfolio_draft', payload); } catch {}
-
-  // Se estiver logado, tenta salvar na nuvem (best effort)
-  try {
-    const me = await api('/auth/me');
-    if (me?.user?.email) {
-      await api('/portfolio','POST',{ portfolio: merged });
-      status.textContent = 'Carteira atualizada e salva com sucesso.';
+    if (!approvedItems.length) {
+      status.textContent = 'Nenhum ativo aprovado para envio.';
+      return;
     }
-  } catch {}
 
-  location.href='commercial-dashboard.html';
+    // Base determinística: snapshot da carteira atual (vindo do dashboard) + fallback sessão
+    let base = [];
+    try {
+      const snap = JSON.parse(sessionStorage.getItem('bitdash_portfolio_snapshot') || 'null');
+      if (Array.isArray(snap)) base = snap;
+    } catch {}
+    if (!base.length) {
+      try {
+        const snapLocal = JSON.parse(localStorage.getItem('bitdash_portfolio_snapshot') || 'null');
+        if (Array.isArray(snapLocal)) base = snapLocal;
+      } catch {}
+    }
+    if (!base.length) {
+      try {
+        const freeRaw = sessionStorage.getItem('freePortfolio');
+        const free = freeRaw ? JSON.parse(freeRaw) : [];
+        if (Array.isArray(free)) base = free;
+      } catch {}
+    }
+
+    const merged = mergeByTicker(base, approvedItems);
+    const payload = JSON.stringify(merged);
+
+    try { sessionStorage.setItem('inboundPortfolio', payload); } catch {}
+    try { localStorage.setItem('bitdash_inbound_portfolio', payload); } catch {}
+    try { localStorage.setItem('bitdash_portfolio_draft', payload); } catch {}
+    try { localStorage.removeItem('bitdash_portfolio_cleared'); } catch {}
+
+    // best effort remoto
+    try {
+      const me = await api('/auth/me');
+      if (me?.user?.email) await api('/portfolio','POST',{ portfolio: merged });
+    } catch {}
+
+    location.href='commercial-dashboard.html';
+  } catch (e) {
+    status.textContent = 'Falha ao confirmar ativos: ' + (e.message || e);
+  }
 };
 
 
@@ -330,12 +333,14 @@ document.getElementById('clearTopBtn').onclick = async ()=>{
     if (me?.user?.email) {
       await api('/portfolio','POST',{ portfolio: [] });
       try { localStorage.setItem('bitdash_portfolio_draft', JSON.stringify([])); } catch {}
+      try { localStorage.setItem('bitdash_portfolio_cleared', '1'); } catch {}
       alert('Carteira limpa com sucesso.');
       return;
     }
   } catch {}
   try { sessionStorage.setItem('freePortfolio', JSON.stringify([])); } catch {}
   try { localStorage.setItem('bitdash_portfolio_draft', JSON.stringify([])); } catch {}
+  try { localStorage.setItem('bitdash_portfolio_cleared', '1'); } catch {}
   alert('Carteira limpa localmente.');
 };
 

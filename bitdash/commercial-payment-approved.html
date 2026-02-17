@@ -43,6 +43,7 @@ async function api(path, method='GET', body){
     body: body ? JSON.stringify(body) : undefined,
   });
   let j={}; try{ j=await r.json(); }catch{}
+  if (j?.token) { try { localStorage.setItem('bitdash_auth_token', j.token); } catch {} }
   if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
   return j;
 }
