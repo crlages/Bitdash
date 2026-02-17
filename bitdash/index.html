@@ -60,7 +60,7 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable13</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable14</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
@@ -230,6 +230,15 @@ function mergePortfolio(base=[], inbound=[]){
 async function loadPortfolio(){
   let base = null;
   let loadedFromRemote = false;
+
+  // rascunho explícito vindo da tela de adicionar ativos (prioridade máxima)
+  try {
+    const draft = JSON.parse(localStorage.getItem('bitdash_portfolio_draft') || 'null');
+    if (Array.isArray(draft) && draft.length) {
+      try { localStorage.removeItem('bitdash_portfolio_draft'); } catch {}
+      return draft;
+    }
+  } catch {}
 
   // mantém estado local de login para não parecer deslogado em falhas momentâneas de sessão
   const localEmail0 = getLocalPremiumEmail();

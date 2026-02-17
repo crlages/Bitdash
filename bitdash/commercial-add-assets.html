@@ -248,7 +248,9 @@ document.getElementById('confirmBtn').onclick = async () => {
       } catch {}
       const merged = mergeByTicker(current, approvedItems);
       await api('/portfolio','POST',{ portfolio: merged });
-      sessionStorage.setItem('freePortfolio', JSON.stringify(merged));
+      const payload = JSON.stringify(merged);
+      sessionStorage.setItem('freePortfolio', payload);
+      try { localStorage.setItem('bitdash_portfolio_draft', payload); } catch {}
       status.textContent = 'Carteira atualizada e salva com sucesso.';
       location.href='commercial-dashboard.html';
       return;
@@ -261,6 +263,7 @@ document.getElementById('confirmBtn').onclick = async () => {
   const payload = JSON.stringify(mergedFree);
   sessionStorage.setItem('inboundPortfolio', payload);
   try { localStorage.setItem('bitdash_inbound_portfolio', payload); } catch {}
+  try { localStorage.setItem('bitdash_portfolio_draft', payload); } catch {}
   location.href='commercial-dashboard.html';
 };
 
