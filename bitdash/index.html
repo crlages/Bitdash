@@ -57,7 +57,7 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable4</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable5</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
@@ -250,6 +250,11 @@ function canonicalClass(asset){
 
 function signal(asset, v, metricType='pvp'){
   if (v == null) return ['SEM DADO', 'd-hold'];
+  if (metricType === 'pl') {
+    if (v <= 8) return ['🟢 COMPRAR FORTE','d-buy'];
+    if (v <= 14) return ['🟡 COMPRAR NORMAL','d-hold'];
+    return ['🔴 EVITAR AGORA','d-avoid'];
+  }
   if (asset.cls === 'CRIPTO') {
     // v = variação 24h (%). Queda forte = oportunidade, alta forte = evitar topo.
     if (v <= -4) return ['🟢 COMPRAR FORTE','d-buy'];
@@ -266,6 +271,7 @@ function signal(asset, v, metricType='pvp'){
 function reason(asset){
   const mType = metricTypes[asset.ticker] || 'pvp';
   if (mType === 'na') return 'Sem métrica aplicável no momento; decisão baseada apenas em preço é limitada.';
+  if (mType === 'pl') return 'Sem P/VP disponível; decisão baseada em P/L (lucro por ação).';
   if (asset.cls==='FII') return 'Faixa P/VP de desconto melhora retorno do reinvestimento.';
   if (asset.cls==='CRIPTO') return 'Regra por variação 24h: queda forte favorece aporte; alta forte pede cautela.';
   if (asset.cls==='ETF EUA') return 'ETF global: usar múltiplo com disciplina evita comprar esticado.';
@@ -344,7 +350,7 @@ function render(){
     const v = metrics[a.ticker];
     const [txt, cls] = signal(a,v, metricTypes[a.ticker] || 'pvp');
     const tr2=document.createElement('tr');
-    tr2.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${a.cls}</td><td>${v!=null?(a.cls==='CRIPTO'?`${v.toFixed(2)}% (24h)`:v.toFixed(2)):'-'}</td><td><span class="decision ${cls}">${txt}</span></td><td>${reason(a)}</td>`;
+    tr2.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${a.cls}</td><td>${v!=null?(a.cls==='CRIPTO'?`${v.toFixed(2)}% (24h)`:(metricTypes[a.ticker]==='pl'?`${v.toFixed(2)} (P/L)`:v.toFixed(2))):'-'}</td><td><span class="decision ${cls}">${txt}</span></td><td>${reason(a)}</td>`;
     dec.appendChild(tr2);
   });
   updateSummary();

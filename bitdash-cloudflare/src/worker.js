@@ -442,9 +442,12 @@ async function marketBatch(request) {
         const ticker = symbol.replace('.SA', '');
         const price = Number(row?.regularMarketPrice);
         const ptb = Number(row?.priceToBook);
+        const pe = Number(row?.trailingPE);
+        const fpe = Number(row?.forwardPE);
         yahooByTicker[ticker] = {
           priceBrl: Number.isFinite(price) ? price : null,
           pvp: Number.isFinite(ptb) ? ptb : null,
+          pe: Number.isFinite(pe) ? pe : (Number.isFinite(fpe) ? fpe : null),
         };
       }
     } catch {}
@@ -486,8 +489,22 @@ async function marketBatch(request) {
     const priceBrl = Number.isFinite(y?.priceBrl)
       ? y.priceBrl
       : (Number.isFinite(b?.priceBrl) ? b.priceBrl : (PRICE_REF[ticker] ?? null));
-    const metric = Number.isFinite(METRIC_REF[ticker]) ? METRIC_REF[ticker] : (Number.isFinite(y?.pvp) ? y.pvp : null);
-    const metricType = Number.isFinite(metric) ? 'pvp' : 'na';
+
+    let metric = null;
+    let metricType = 'na';
+    const clsNorm = String(cls || '').toUpperCase();
+    const isEquityLike = clsNorm === 'ACAO' || clsNorm === 'AÇÃO' || clsNorm === 'BDR' || clsNorm === 'ETF' || clsNorm === 'ETF EUA';
+
+    if (Number.isFinite(METRIC_REF[ticker])) {
+      metric = METRIC_REF[ticker];
+      metricType = 'pvp';
+    } else if (Number.isFinite(y?.pvp)) {
+      metric = y.pvp;
+      metricType = 'pvp';
+    } else if (isEquityLike && Number.isFinite(y?.pe)) {
+      metric = y.pe;
+      metricType = 'pl';
+    }
 
     return { ticker, cls, priceBrl, metric, metricType, usdBrl };
   });
