@@ -536,6 +536,15 @@ async function marketBatch(request, env) {
     } else if (isEquityLike && Number.isFinite(f?.pl)) {
       metric = f.pl;
       metricType = 'pl';
+    } else {
+      // fallback universal indicativo para não deixar ativo sem referência
+      if (clsNorm === 'FII') {
+        metric = 0.99;
+        metricType = 'ref';
+      } else if (isEquityLike) {
+        metric = 1.35;
+        metricType = 'ref';
+      }
     }
 
     return { ticker, cls, priceBrl, metric, metricType, usdBrl };
