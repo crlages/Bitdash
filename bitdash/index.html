@@ -57,7 +57,7 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable3</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable4</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
@@ -169,6 +169,7 @@ const rules = {
 
 let portfolio = DEFAULT_PORT.slice();
 let metrics = {};
+let metricTypes = {};
 let marketPrices = {};
 try { marketPrices = JSON.parse(localStorage.getItem('bitdash_market_prices')||'{}') || {}; } catch {}
 // limpeza de legado: remove preços genéricos de R$20,00 que vinham de fallback antigo
@@ -247,8 +248,8 @@ function canonicalClass(asset){
   return classify(asset.ticker);
 }
 
-function signal(asset, v){
-  if (v == null) return ['AGUARDANDO', 'd-hold'];
+function signal(asset, v, metricType='pvp'){
+  if (v == null) return ['SEM DADO', 'd-hold'];
   if (asset.cls === 'CRIPTO') {
     // v = variação 24h (%). Queda forte = oportunidade, alta forte = evitar topo.
     if (v <= -4) return ['🟢 COMPRAR FORTE','d-buy'];
@@ -263,6 +264,8 @@ function signal(asset, v){
 }
 
 function reason(asset){
+  const mType = metricTypes[asset.ticker] || 'pvp';
+  if (mType === 'na') return 'Sem métrica aplicável no momento; decisão baseada apenas em preço é limitada.';
   if (asset.cls==='FII') return 'Faixa P/VP de desconto melhora retorno do reinvestimento.';
   if (asset.cls==='CRIPTO') return 'Regra por variação 24h: queda forte favorece aporte; alta forte pede cautela.';
   if (asset.cls==='ETF EUA') return 'ETF global: usar múltiplo com disciplina evita comprar esticado.';
@@ -339,7 +342,7 @@ function render(){
     else invAcoes.appendChild(trInv);
 
     const v = metrics[a.ticker];
-    const [txt, cls] = signal(a,v);
+    const [txt, cls] = signal(a,v, metricTypes[a.ticker] || 'pvp');
     const tr2=document.createElement('tr');
     tr2.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${a.cls}</td><td>${v!=null?(a.cls==='CRIPTO'?`${v.toFixed(2)}% (24h)`:v.toFixed(2)):'-'}</td><td><span class="decision ${cls}">${txt}</span></td><td>${reason(a)}</td>`;
     dec.appendChild(tr2);
@@ -360,19 +363,20 @@ async function refresh(){
     const items = Array.isArray(j.items) ? j.items : [];
     if (Number.isFinite(j.usdBrl)) usdBrl = j.usdBrl;
 
-    let ok=0, fail=0, pxOk=0, pxFail=0;
+    let ok=0, unavailable=0, fail=0, pxOk=0, pxFail=0;
     for (const it of items) {
       const isCrypto = String(it.cls || '').toUpperCase() === 'CRIPTO';
+      metricTypes[it.ticker] = it.metricType || (isCrypto ? 'chg24h' : 'pvp');
 
-      // Métrica: para cripto (24h) pode não vir e não conta como falha técnica
       if (Number.isFinite(it.metric)) {
         metrics[it.ticker] = it.metric;
         ok++;
-      } else if (!isCrypto && it.metricType !== 'na') {
+      } else if (it.metricType === 'na') {
+        unavailable++;
+      } else if (!isCrypto) {
         fail++;
       }
 
-      // Preço: se API falhar, mantém último preço válido em cache
       if (Number.isFinite(it.priceBrl)) {
         marketPrices[it.ticker] = it.priceBrl;
         pxOk++;
@@ -384,7 +388,7 @@ async function refresh(){
     }
 
     try { localStorage.setItem('bitdash_market_prices', JSON.stringify(marketPrices)); } catch {}
-    document.getElementById('status').textContent=`P/VP/24h: ${ok} ok, ${fail} falhas • Preços: ${pxOk} ok, ${pxFail} falhas (USD/BRL ${usdBrl.toFixed(2)}).`;
+    document.getElementById('status').textContent=`P/VP/24h: ${ok} ok, ${unavailable} indisponíveis, ${fail} falhas • Preços: ${pxOk} ok, ${pxFail} falhas (USD/BRL ${usdBrl.toFixed(2)}).`;
   } catch (e) {
     document.getElementById('status').textContent = `Falha rápida na atualização: ${e.message}`;
   }
