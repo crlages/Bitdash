@@ -46,6 +46,14 @@ export default {
         return C(await marketBatch(request));
       }
 
+      if (url.pathname === '/assets/search' && request.method === 'GET') {
+        return C(await assetsSearch(request, env));
+      }
+
+      if (url.pathname === '/assets/sync' && request.method === 'POST') {
+        return C(await assetsSync(env));
+      }
+
       if (url.pathname === '/payments/dev-approve' && request.method === 'POST') {
         return C(await paymentDevApprove(request, env));
       }
@@ -530,4 +538,94 @@ async function marketNews(request) {
   ]));
 
   return json({ ok:true, news: news.slice(0, limit) });
+}
+
+async function ensureAssetsUniverseSchema(env) {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS assets_universe (
+      ticker TEXT PRIMARY KEY,
+      name TEXT,
+      asset_type TEXT,
+      source TEXT NOT NULL DEFAULT 'brapi',
+      is_active INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `).run();
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_assets_universe_type ON assets_universe(asset_type)').run();
+}
+
+function classifyTickerUniverse(ticker='') {
+  const t = String(ticker).toUpperCase();
+  if (/^[A-Z0-9]{4,10}11$/.test(t)) return 'FUNDO';
+  if (/^[A-Z]{4}(3|4|5|6)$/.test(t)) return 'ACAO';
+  if (/^[A-Z]{4,6}\d{2}$/.test(t)) return 'BDR';
+  return 'OUTRO';
+}
+
+async function assetsSync(env) {
+  await ensureAssetsUniverseSchema(env);
+
+  // BRAPI lista de ações brasileiras; alguns fundos também aparecem em endpoints de quote
+  const out = [];
+  try {
+    const j = await fetch('https://brapi.dev/api/available?search=stocks', { cf: { cacheTtl: 3600, cacheEverything: true } }).then(r => r.json());
+    const stocks = Array.isArray(j?.stocks) ? j.stocks : [];
+    for (const t of stocks) {
+      const ticker = String(t || '').trim().toUpperCase();
+      if (!ticker) continue;
+      out.push({ ticker, name: null, asset_type: classifyTickerUniverse(ticker) });
+    }
+  } catch {}
+
+  // seed de fundos mais comuns para garantir cobertura inicial
+  const fundosSeed = ['MXRF11','HGLG11','KNIP11','XPML11','BTLG11','VISC11','KNCR11','HGBS11','HGRU11','IRDM11','XPLG11','VILG11','BRCO11','CPTS11'];
+  for (const t of fundosSeed) {
+    out.push({ ticker: t, name: null, asset_type: 'FUNDO' });
+  }
+
+  const byTicker = new Map();
+  for (const a of out) byTicker.set(a.ticker, a);
+  const unique = [...byTicker.values()];
+
+  for (const a of unique) {
+    await env.DB.prepare(`
+      INSERT INTO assets_universe (ticker, name, asset_type, source, is_active, updated_at)
+      VALUES (?, ?, ?, 'brapi', 1, datetime('now'))
+      ON CONFLICT(ticker) DO UPDATE SET
+        name=COALESCE(excluded.name, assets_universe.name),
+        asset_type=COALESCE(excluded.asset_type, assets_universe.asset_type),
+        is_active=1,
+        updated_at=datetime('now')
+    `).bind(a.ticker, a.name, a.asset_type).run();
+  }
+
+  return json({ ok: true, synced: unique.length });
+}
+
+async function assetsSearch(request, env) {
+  await ensureAssetsUniverseSchema(env);
+  const url = new URL(request.url);
+  const q = String(url.searchParams.get('q') || '').trim().toUpperCase();
+  const limit = Math.min(30, Math.max(1, Number(url.searchParams.get('limit') || 12)));
+
+  if (!q) {
+    const rows = await env.DB.prepare(`
+      SELECT ticker, name, asset_type
+      FROM assets_universe
+      WHERE is_active = 1
+      ORDER BY updated_at DESC
+      LIMIT ?
+    `).bind(limit).all();
+    return json({ ok: true, items: rows?.results || [] });
+  }
+
+  const rows = await env.DB.prepare(`
+    SELECT ticker, name, asset_type
+    FROM assets_universe
+    WHERE is_active = 1 AND (ticker LIKE ? OR name LIKE ?)
+    ORDER BY CASE WHEN ticker = ? THEN 0 WHEN ticker LIKE ? THEN 1 ELSE 2 END, ticker ASC
+    LIMIT ?
+  `).bind(`${q}%`, `%${q}%`, q, `${q}%`, limit).all();
+
+  return json({ ok: true, items: rows?.results || [] });
 }

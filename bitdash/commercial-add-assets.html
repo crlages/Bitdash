@@ -82,7 +82,20 @@
   </div>
 
 <script>
+const API = (window.BITDASH_API_URL || 'https://bitdash-api.crlages.workers.dev').replace(/\/$/, '');
 function normalizeTicker(t){ return String(t||'').trim().toUpperCase(); }
+
+async function api(path, method='GET', body){
+  const r = await fetch(API+path, {
+    method,
+    headers: {'Content-Type':'application/json'},
+    credentials: 'include',
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let j={}; try{ j=await r.json(); }catch{}
+  if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
+  return j;
+}
 
 function classifyB3(ticker){
   // Fundos listados (FII/FIAGRO/alguns fundos de índice) costumam terminar em 11
@@ -127,6 +140,27 @@ function validateAsset(item){
   return { ...item, type, ok:true, reason:'Aprovado para carteira e precificação.' };
 }
 
+function mapUniverseTypeToLocal(assetType){
+  const t = String(assetType || '').toUpperCase();
+  if (t === 'FUNDO') return 'FUNDO';
+  if (t === 'ACAO') return 'AÇÃO';
+  if (t === 'BDR') return 'BDR';
+  return null;
+}
+
+async function validateWithUniverse(item){
+  try {
+    const j = await api(`/assets/search?q=${encodeURIComponent(item.ticker)}&limit=3`);
+    const rows = Array.isArray(j.items) ? j.items : [];
+    const exact = rows.find(r => String(r.ticker || '').toUpperCase() === item.ticker);
+    if (exact) {
+      const type = mapUniverseTypeToLocal(exact.asset_type) || classifyB3(item.ticker) || '-';
+      return { ...item, type, ok: true, reason: 'Validado no universo B3.' };
+    }
+  } catch {}
+  return validateAsset(item);
+}
+
 let approvedItems = [];
 
 function mapTypeToDashboardClass(type){
@@ -160,7 +194,7 @@ function renderReview(rows){
   approvedItems = rows.filter(x=>x.ok).map(x=>({ ticker:x.ticker, qty:x.qty, cls:mapTypeToDashboardClass(x.type) }));
 }
 
-document.getElementById('analyzeBtn').onclick = () => {
+document.getElementById('analyzeBtn').onclick = async () => {
   const raw = document.getElementById('raw').value || '';
   const parsed = parseRaw(raw);
   const status = document.getElementById('status');
@@ -171,7 +205,8 @@ document.getElementById('analyzeBtn').onclick = () => {
     return;
   }
 
-  const reviewed = parsed.map(validateAsset);
+  status.textContent = 'Validando no universo B3...';
+  const reviewed = await Promise.all(parsed.map(validateWithUniverse));
   renderReview(reviewed);
   status.textContent = 'Pré-avaliação concluída. Confirme para enviar apenas os aprovados.';
 };
@@ -200,6 +235,18 @@ document.getElementById('confirmBtn').onclick = () => {
   document.addEventListener('click', (e) => {
     if (!tip.contains(e.target)) tip.classList.remove('open');
   });
+})();
+
+// sincroniza universo B3 no máximo 1x por dia (sem bloquear a tela)
+(async function syncUniverseOnceDaily(){
+  try {
+    const key = 'bitdash_assets_universe_sync_at';
+    const last = Number(localStorage.getItem(key) || 0);
+    const now = Date.now();
+    if ((now - last) < 24*60*60*1000) return;
+    await api('/assets/sync', 'POST', {});
+    localStorage.setItem(key, String(now));
+  } catch {}
 })();
 
 </script>
