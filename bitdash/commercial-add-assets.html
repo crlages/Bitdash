@@ -163,6 +163,25 @@ async function validateWithUniverse(item){
 
 let approvedItems = [];
 
+function mergeByTicker(base=[], incoming=[]){
+  const m = new Map();
+  for (const a of base) {
+    const t = normalizeTicker(a.ticker);
+    const qty = Number(a.qty || 0);
+    if (!t || !Number.isFinite(qty) || qty <= 0) continue;
+    m.set(t, { ticker:t, qty, cls: mapTypeToDashboardClass(classifyB3(t) || 'AÇÃO') });
+  }
+  for (const a of incoming) {
+    const t = normalizeTicker(a.ticker);
+    const qty = Number(a.qty || 0);
+    if (!t || !Number.isFinite(qty) || qty <= 0) continue;
+    const prev = m.get(t);
+    const nextQty = (prev?.qty || 0) + qty;
+    m.set(t, { ticker:t, qty: nextQty, cls: mapTypeToDashboardClass(classifyB3(t) || 'AÇÃO') });
+  }
+  return [...m.values()];
+}
+
 function mapTypeToDashboardClass(type){
   // dashboard atual trabalha melhor com AÇÃO/FII
   if (type === 'FUNDO' || type === 'FII' || type === 'ETF') return 'FII';
@@ -211,15 +230,36 @@ document.getElementById('analyzeBtn').onclick = async () => {
   status.textContent = 'Pré-avaliação concluída. Confirme para enviar apenas os aprovados.';
 };
 
-document.getElementById('confirmBtn').onclick = () => {
+document.getElementById('confirmBtn').onclick = async () => {
   const status = document.getElementById('status');
   if (!approvedItems.length) {
     status.textContent = 'Nenhum ativo aprovado para envio.';
     return;
   }
-  const payload = JSON.stringify(approvedItems);
+
+  try {
+    // caminho principal: usuário logado -> merge + salva direto no backend
+    const me = await api('/auth/me');
+    if (me?.user?.email) {
+      let current = [];
+      try {
+        const saved = await api('/portfolio');
+        if (Array.isArray(saved?.portfolio)) current = saved.portfolio;
+      } catch {}
+      const merged = mergeByTicker(current, approvedItems);
+      await api('/portfolio','POST',{ portfolio: merged });
+      sessionStorage.setItem('freePortfolio', JSON.stringify(merged));
+      status.textContent = 'Carteira atualizada e salva com sucesso.';
+      location.href='commercial-dashboard.html';
+      return;
+    }
+  } catch {}
+
+  // fallback modo grátis
+  const free = JSON.parse(sessionStorage.getItem('freePortfolio') || '[]');
+  const mergedFree = mergeByTicker(Array.isArray(free)?free:[], approvedItems);
+  const payload = JSON.stringify(mergedFree);
   sessionStorage.setItem('inboundPortfolio', payload);
-  // fallback extra para evitar perda em navegações/abas específicas
   try { localStorage.setItem('bitdash_inbound_portfolio', payload); } catch {}
   location.href='commercial-dashboard.html';
 };
