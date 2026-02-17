@@ -13,6 +13,8 @@
     button{background:#1b2d5e;color:#fff;border:1px solid #3d58a6;border-radius:9px;padding:8px 12px;cursor:pointer}
     button[disabled]{opacity:.5;cursor:not-allowed}
     .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+    .top-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     table{width:100%;border-collapse:collapse;font-size:.94rem;margin-top:8px}
     th,td{padding:8px;border-bottom:1px solid #243566;text-align:left}
     th{color:#9aa7d8}
@@ -36,7 +38,14 @@
   </style>
 </head>
 <body>
-  <h1 style="margin-top:0">Adicionar novos ativos</h1>
+  <div class="topbar">
+    <h1 style="margin:0">Adicionar novos ativos</h1>
+    <div class="top-actions">
+      <button id="loginTopBtn">Login Premium</button>
+      <button id="clearTopBtn">Limpar carteira</button>
+      <button id="logoutTopBtn" class="hidden">Sair</button>
+    </div>
+  </div>
 
   <div class="row" style="margin-bottom:10px;">
     <div class="muted"><strong>Suporta apenas ativos da B3</strong></div>
@@ -96,6 +105,29 @@ async function api(path, method='GET', body){
   if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
   return j;
 }
+
+function getLocalPremiumEmail(){
+  const e = String(localStorage.getItem('bitdash_local_user') || '').trim().toLowerCase();
+  return e || null;
+}
+
+async function updateTopAuthState(){
+  const loginBtn = document.getElementById('loginTopBtn');
+  const logoutBtn = document.getElementById('logoutTopBtn');
+  try {
+    const me = await api('/auth/me');
+    const email = me?.user?.email || '';
+    if (email) {
+      loginBtn.textContent = `Premium: ${email}`;
+      logoutBtn.classList.remove('hidden');
+      return true;
+    }
+  } catch {}
+  loginBtn.textContent = 'Login Premium';
+  logoutBtn.classList.add('hidden');
+  return false;
+}
+
 
 function classifyB3(ticker){
   // Fundos listados (FII/FIAGRO/alguns fundos de índice) costumam terminar em 11
@@ -267,6 +299,31 @@ document.getElementById('confirmBtn').onclick = async () => {
   location.href='commercial-dashboard.html';
 };
 
+
+
+document.getElementById('loginTopBtn').onclick = ()=>{ location.href='commercial-auth.html'; };
+document.getElementById('logoutTopBtn').onclick = async ()=>{
+  try { await api('/auth/logout','POST',{}); } catch {}
+  try { localStorage.removeItem('bitdash_local_user'); } catch {}
+  await updateTopAuthState();
+  alert('Sessão encerrada.');
+};
+document.getElementById('clearTopBtn').onclick = async ()=>{
+  const ok = confirm('Tem certeza que deseja limpar a carteira?');
+  if (!ok) return;
+  try {
+    const me = await api('/auth/me');
+    if (me?.user?.email) {
+      await api('/portfolio','POST',{ portfolio: [] });
+      try { localStorage.setItem('bitdash_portfolio_draft', JSON.stringify([])); } catch {}
+      alert('Carteira limpa com sucesso.');
+      return;
+    }
+  } catch {}
+  try { sessionStorage.setItem('freePortfolio', JSON.stringify([])); } catch {}
+  try { localStorage.setItem('bitdash_portfolio_draft', JSON.stringify([])); } catch {}
+  alert('Carteira limpa localmente.');
+};
 
 // Tooltip também no clique (mobile/touch)
 (function(){
