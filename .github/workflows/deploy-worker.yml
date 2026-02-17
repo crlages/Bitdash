@@ -1,0 +1,36 @@
+name: Deploy Worker (bitdash-api)
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'bitdash-cloudflare/**'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Wrangler
+        run: npm i -g wrangler@4
+
+      - name: Deploy Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cd bitdash-cloudflare
+          wrangler deploy
+
+      - name: Healthcheck
+        run: |
+          curl -fsS --max-time 15 https://bitdash-api.crlages.workers.dev/health
