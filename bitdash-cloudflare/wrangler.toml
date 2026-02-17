@@ -1,0 +1,11 @@
+name = "bitdash-api"
+main = "src/worker.js"
+compatibility_date = "2026-02-14"
+
+[vars]
+GOOGLE_CLIENT_ID = "90657228527-vg76ohma7rj6pkpc7p9sk4spk13dlbc1.apps.googleusercontent.com"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bitdash-db"
+database_id = "886c8be8-608e-446f-8e10-b919f220d78e"
