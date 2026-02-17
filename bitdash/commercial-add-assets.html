@@ -217,7 +217,10 @@ document.getElementById('confirmBtn').onclick = () => {
     status.textContent = 'Nenhum ativo aprovado para envio.';
     return;
   }
-  sessionStorage.setItem('inboundPortfolio', JSON.stringify(approvedItems));
+  const payload = JSON.stringify(approvedItems);
+  sessionStorage.setItem('inboundPortfolio', payload);
+  // fallback extra para evitar perda em navegações/abas específicas
+  try { localStorage.setItem('bitdash_inbound_portfolio', payload); } catch {}
   location.href='commercial-dashboard.html';
 };
 
