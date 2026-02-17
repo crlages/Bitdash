@@ -52,12 +52,15 @@
     .d-hold{background:rgba(255,204,102,.2);color:#ffd97c}
     .d-avoid{background:rgba(255,107,107,.2);color:#ffb1b1}
     .hidden{display:none}
+    .info-tip{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:999px;border:1px solid #4f6fc7;background:#1a2a57;color:#cfe0ff;font-size:.75rem;font-weight:700;cursor:help;vertical-align:middle;margin-left:6px;position:relative}
+    .info-tip .tip-box{display:none;position:absolute;top:24px;left:0;z-index:20;width:min(420px,78vw);background:#0f1731;border:1px solid #3b56a2;border-radius:10px;padding:10px;color:#dce6ff;font-size:.86rem;line-height:1.35;box-shadow:0 10px 24px rgba(0,0,0,.35)}
+    .info-tip:hover .tip-box,.info-tip.open .tip-box{display:block}
   </style>
 </head>
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable8</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable9</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
@@ -133,7 +136,7 @@
   </div>
 
   <div class="card" style="margin-top:14px;">
-    <h3>Painel de decisão instantânea (FII/Ações/Cripto)</h3>
+    <h3>Painel de decisão instantânea (FII/Ações/Cripto) <span class="info-tip" id="metricInfo" aria-label="Explicação de métricas">i<div class="tip-box"><strong>Como ler a coluna Métrica:</strong><br/>• <strong>P/VP</strong>: preço sobre valor patrimonial (mais comum em FIIs e algumas ações).<br/>• <strong>P/L</strong>: preço sobre lucro (usado quando P/VP não está disponível, principalmente em ações).<br/>• <strong>Ref.</strong>: valor indicativo de fallback para manter cobertura quando a fonte externa não retorna métrica.<br/><br/>Por isso o nome da coluna é <strong>Métrica</strong> (não apenas P/VP).</div></span></h3>
     <div class="muted">Botão automático busca múltiplos no Investidor10 e responde se deve comprar ou não, com regra específica por classe.</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0;">
       <button id="refreshBtn">Atualizar P/VP automático</button>
@@ -141,7 +144,7 @@
       <span id="mode" class="muted"></span>
     </div>
     <table>
-      <thead><tr><th>Ativo</th><th>Classe</th><th>Métrica atual</th><th>Decisão</th><th>Motivo</th></tr></thead>
+      <thead><tr><th>Ativo</th><th>Classe</th><th>Métrica (P/VP | P/L | Ref.)</th><th>Decisão</th><th>Motivo</th></tr></thead>
       <tbody id="decisionRows"></tbody>
     </table>
   </div>
@@ -612,6 +615,14 @@ async function loadNews(){
     renderNews(fallbackNewsItems());
   }
 }
+
+
+(function(){
+  const tip = document.getElementById('metricInfo');
+  if (!tip) return;
+  tip.addEventListener('click', (e)=>{ e.stopPropagation(); tip.classList.toggle('open'); });
+  document.addEventListener('click', (e)=>{ if (!tip.contains(e.target)) tip.classList.remove('open'); });
+})();
 
 window.addEventListener('resize', () => {
   updateSummary();
