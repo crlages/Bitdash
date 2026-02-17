@@ -21,7 +21,7 @@
 </head>
 <body>
   <div class="card">
-    <h1>Login Premium</h1>
+    <h1>Login Premium <span class="muted" style="font-size:.8rem">build 2026-02-17-auth1</span></h1>
     <div class="muted">Entre com Google. O sistema usa a conta já logada no seu navegador/dispositivo quando possível.</div>
 
     <div class="row">
@@ -35,8 +35,7 @@
   </div>
 
 <script>
-const DEFAULT_API = '/api';
-const API = (window.BITDASH_API_URL || localStorage.getItem('bitdash_api_url') || DEFAULT_API).replace(/\/$/, '');
+const API = (window.BITDASH_API_URL || 'https://bitdash-api.crlages.workers.dev').replace(/\/$/, '');
 const GOOGLE_CLIENT_ID = '90657228527-vg76ohma7rj6pkpc7p9sk4spk13dlbc1.apps.googleusercontent.com'; // Client ID Web do Google Cloud
 
 const statusEl = document.getElementById('status');
