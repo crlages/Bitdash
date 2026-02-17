@@ -189,6 +189,21 @@ try { localStorage.setItem('bitdash_market_prices', JSON.stringify(marketPrices)
 let usdBrl = 5.2;
 let currentUser = null;
 
+function parseLocalSession(){
+  try {
+    const token = String(localStorage.getItem('bitdash_auth_token') || '').trim();
+    if (!token) return null;
+    const body = token.split('.')[0] || '';
+    if (!body) return null;
+    const b64 = body.replace(/-/g,'+').replace(/_/g,'/');
+    const pad = b64.length % 4 ? '='.repeat(4 - (b64.length % 4)) : '';
+    const payload = JSON.parse(atob(b64 + pad));
+    if (!payload?.email) return null;
+    if (payload?.exp && Date.now() > Number(payload.exp)) return null;
+    return { email: String(payload.email).toLowerCase(), name: payload.name || null };
+  } catch { return null; }
+}
+
 function getLocalPremiumEmail(){
   const e = String(localStorage.getItem('bitdash_local_user') || '').trim().toLowerCase();
   return e || null;
@@ -234,13 +249,8 @@ function mergePortfolio(base=[], inbound=[]){
 async function loadPortfolio(){
   let base = null;
 
-  // 1) sempre resolve estado de autenticação primeiro
-  try {
-    const me = await api('/auth/me');
-    currentUser = me?.user || null;
-  } catch {
-    currentUser = null;
-  }
+  // 1) estado de autenticação determinístico via token local
+  currentUser = parseLocalSession();
 
   // 2) tenta carregar carteira remota se autenticado
   if (currentUser?.email) {
