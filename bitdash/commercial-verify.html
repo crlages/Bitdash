@@ -20,7 +20,7 @@ button{background:#1b2d5e;color:#fff;border:1px solid #3d58a6;border-radius:9px;
   <div id="status" class="muted" style="margin-top:10px;"></div>
 </div>
 <script>
-const API = (window.BITDASH_API_URL || localStorage.getItem('bitdash_api_url') || '/api').replace(/\/$/, '');
+const API = (window.BITDASH_API_URL || 'https://bitdash-api.crlages.workers.dev').replace(/\/$/, '');
 const params = new URLSearchParams(location.search);
 const emailEl = document.getElementById('email');
 const codeEl = document.getElementById('code');

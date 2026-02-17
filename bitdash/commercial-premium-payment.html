@@ -30,7 +30,7 @@
   </div>
 
 <script>
-const API = (window.BITDASH_API_URL || localStorage.getItem('bitdash_api_url') || '/api').replace(/\/$/, '');
+const API = (window.BITDASH_API_URL || 'https://bitdash-api.crlages.workers.dev').replace(/\/$/, '');
 const statusEl = document.getElementById('status');
 
 async function api(path, method='GET', body){

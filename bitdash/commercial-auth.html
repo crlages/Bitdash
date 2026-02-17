@@ -60,11 +60,8 @@ async function api(path, method='GET', body){
 }
 
 async function routeByPremium(email, premium){
-  if (premium) {
-    location.href = 'commercial-dashboard.html';
-    return;
-  }
-  location.href = `commercial-premium-payment.html?email=${encodeURIComponent(email || '')}`;
+  // fluxo único: sempre entra no dashboard após login
+  location.href = 'commercial-dashboard.html';
 }
 
 async function checkExistingLogin(){
