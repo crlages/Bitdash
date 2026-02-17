@@ -60,7 +60,7 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable18</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable19</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
@@ -195,9 +195,13 @@ function getLocalPremiumEmail(){
 }
 
 async function api(path, method='GET', body){
+  const token = localStorage.getItem('bitdash_auth_token') || '';
+  const headers = {'Content-Type':'application/json'};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
   const r = await fetch(API+path, {
     method,
-    headers: {'Content-Type':'application/json'},
+    headers,
     credentials: 'include',
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -537,6 +541,7 @@ document.getElementById('clearBtn').onclick = async ()=>{
 document.getElementById('logoutBtn').onclick = async ()=>{
   try { await api('/auth/logout','POST',{}); } catch {}
   try { localStorage.removeItem('bitdash_local_user'); } catch {}
+  try { localStorage.removeItem('bitdash_auth_token'); } catch {}
   location.reload();
 };
 

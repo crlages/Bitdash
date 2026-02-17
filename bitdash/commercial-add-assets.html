@@ -95,9 +95,13 @@ const API = (window.BITDASH_API_URL || 'https://bitdash-api.crlages.workers.dev'
 function normalizeTicker(t){ return String(t||'').trim().toUpperCase(); }
 
 async function api(path, method='GET', body){
+  const token = localStorage.getItem('bitdash_auth_token') || '';
+  const headers = {'Content-Type':'application/json'};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
   const r = await fetch(API+path, {
     method,
-    headers: {'Content-Type':'application/json'},
+    headers,
     credentials: 'include',
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -314,6 +318,7 @@ document.getElementById('loginTopBtn').onclick = ()=>{ location.href='commercial
 document.getElementById('logoutTopBtn').onclick = async ()=>{
   try { await api('/auth/logout','POST',{}); } catch {}
   try { localStorage.removeItem('bitdash_local_user'); } catch {}
+  try { localStorage.removeItem('bitdash_auth_token'); } catch {}
   await updateTopAuthState();
   alert('Sessão encerrada.');
 };

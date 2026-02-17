@@ -21,7 +21,7 @@
 </head>
 <body>
   <div class="card">
-    <h1>Login Premium <span class="muted" style="font-size:.8rem">build 2026-02-17-auth1</span></h1>
+    <h1>Login Premium <span class="muted" style="font-size:.8rem">build 2026-02-17-auth2</span></h1>
     <div class="muted">Entre com Google. O sistema usa a conta já logada no seu navegador/dispositivo quando possível.</div>
 
     <div class="row">
@@ -42,9 +42,13 @@ const statusEl = document.getElementById('status');
 
 async function api(path, method='GET', body){
   try {
+    const token = localStorage.getItem('bitdash_auth_token') || '';
+    const headers = {'Content-Type':'application/json'};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const r = await fetch(API+path, {
       method,
-      headers: {'Content-Type':'application/json'},
+      headers,
       credentials: 'include',
       body: body ? JSON.stringify(body) : undefined,
     });
@@ -76,6 +80,8 @@ async function loginWithGoogleCredential(credential){
   try {
     const j = await api('/auth/google','POST',{ credential });
     const email = j?.user?.email || '';
+    const token = j?.token || '';
+    if (token) localStorage.setItem('bitdash_auth_token', token);
     if (email) localStorage.setItem('bitdash_local_user', email);
     statusEl.textContent = 'Login Google OK. Verificando assinatura...';
     setTimeout(()=>routeByPremium(email, !!j?.premium), 350);

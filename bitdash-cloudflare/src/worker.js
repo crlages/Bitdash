@@ -132,8 +132,8 @@ async function createSessionCookie(payload, secret) {
   return `${body}.${sig}`;
 }
 
-async function parseSessionCookie(request, secret) {
-  const raw = getCookie(request, 'bitdash_token');
+async function parseSessionToken(rawToken, secret) {
+  const raw = String(rawToken || '').trim();
   if (!raw) return null;
   const [body, sig] = raw.split('.');
   if (!body || !sig) return null;
@@ -147,6 +147,18 @@ async function parseSessionCookie(request, secret) {
   } catch {
     return null;
   }
+}
+
+async function parseSession(request, secret) {
+  const auth = String(request.headers.get('Authorization') || '');
+  if (auth.toLowerCase().startsWith('bearer ')) {
+    const bearer = auth.slice(7).trim();
+    const s = await parseSessionToken(bearer, secret);
+    if (s) return s;
+  }
+
+  const cookieToken = getCookie(request, 'bitdash_token');
+  return parseSessionToken(cookieToken, secret);
 }
 
 function getCookie(request, name) {
@@ -199,6 +211,7 @@ async function authGoogle(request, env) {
 
   return json({
     ok: true,
+    token,
     user: { email, name: g.name || null, picture: g.picture || null },
     premium,
     premiumStatus: sub?.status || 'pending'
@@ -206,7 +219,7 @@ async function authGoogle(request, env) {
 }
 
 async function authMe(request, env) {
-  const session = await parseSessionCookie(request, env.JWT_SECRET);
+  const session = await parseSession(request, env.JWT_SECRET);
   if (!session) return json({ ok: false, error: 'not_authenticated' }, 401);
   const sub = await env.DB.prepare('SELECT status FROM subscriptions WHERE email = ?').bind(session.email).first();
   return json({ ok: true, user: { email: session.email, name: session.name || null }, premium: sub?.status === 'approved', premiumStatus: sub?.status || 'pending' });
@@ -217,7 +230,7 @@ async function authLogout() {
 }
 
 async function getPortfolio(request, env) {
-  const session = await parseSessionCookie(request, env.JWT_SECRET);
+  const session = await parseSession(request, env.JWT_SECRET);
   if (!session) return json({ ok: false, error: 'not_authenticated' }, 401);
 
   const row = await env.DB.prepare('SELECT data_json FROM portfolios WHERE email = ?').bind(session.email).first();
@@ -225,7 +238,7 @@ async function getPortfolio(request, env) {
 }
 
 async function savePortfolio(request, env) {
-  const session = await parseSessionCookie(request, env.JWT_SECRET);
+  const session = await parseSession(request, env.JWT_SECRET);
   if (!session) return json({ ok: false, error: 'not_authenticated' }, 401);
 
   const body = await request.json();
