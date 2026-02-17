@@ -60,7 +60,7 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable11</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable12</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
@@ -229,30 +229,38 @@ function mergePortfolio(base=[], inbound=[]){
 
 async function loadPortfolio(){
   let base = null;
+  let loadedFromRemote = false;
 
   try {
     const me = await api('/auth/me');
     currentUser = me.user;
     const saved = await api('/portfolio');
-    if (saved?.portfolio?.length) base = saved.portfolio;
+    // IMPORTANT: array vazia também é estado válido (carteira limpa)
+    if (Array.isArray(saved?.portfolio)) {
+      base = saved.portfolio;
+      loadedFromRemote = true;
+    }
   } catch {
     const localEmail = getLocalPremiumEmail();
     currentUser = localEmail ? { email: localEmail, localPremium: true } : null;
     if (localEmail) {
       try {
         const localPort = JSON.parse(localStorage.getItem(`bitdash_portfolio_${localEmail}`) || 'null');
-        if (Array.isArray(localPort) && localPort.length) base = localPort;
+        if (Array.isArray(localPort)) base = localPort;
       } catch {}
     }
   }
 
-  if (!base) {
+  // Sem sessão remota: usa sessão local grátis
+  if (!loadedFromRemote && base == null) {
     const free = JSON.parse(sessionStorage.getItem('freePortfolio')||'null');
-    if (free?.length) base = free;
+    if (Array.isArray(free)) base = free;
   }
-  if (!base) base = DEFAULT_PORT.slice();
 
-  // adiciona ativos recém-inseridos SEM perder carteira existente
+  // Primeira execução sem dado algum
+  if (base == null) base = DEFAULT_PORT.slice();
+
+  // Adiciona ativos recém-inseridos SEM perder carteira existente
   const inbound = JSON.parse(sessionStorage.getItem('inboundPortfolio')||'null');
   if (inbound?.length) {
     const merged = mergePortfolio(base, inbound);
@@ -264,81 +272,6 @@ async function loadPortfolio(){
   return base;
 }
 
-function normalizeTicker(t){ return t==='BITCOIN' ? 'BTC' : t; }
-const STOCK11_OVERRIDES = new Set(['KLBN11','TAEE11']);
-function classify(t){
-  t=normalizeTicker(t);
-  if (CRYPTO_SET.has(t)) return 'CRIPTO';
-  if (['IVV','SCHD'].includes(t)) return 'ETF EUA';
-  if (STOCK11_OVERRIDES.has(t)) return 'AÇÃO';
-  return t.endsWith('11') ? 'FII' : 'AÇÃO';
-}
-function canonicalClass(asset){
-  // Sempre recalcula pela regra do ticker para evitar classe antiga errada salva em sessões passadas
-  return classify(asset.ticker);
-}
-
-function signal(asset, v, metricType='pvp'){
-  if (v == null) return ['SEM DADO', 'd-hold'];
-  if (metricType === 'pl') {
-    if (v <= 8) return ['🟢 COMPRAR FORTE','d-buy'];
-    if (v <= 14) return ['🟡 COMPRAR NORMAL','d-hold'];
-    return ['🔴 EVITAR AGORA','d-avoid'];
-  }
-  if (asset.cls === 'CRIPTO') {
-    // v = variação 24h (%). Queda forte = oportunidade, alta forte = evitar topo.
-    if (v <= -4) return ['🟢 COMPRAR FORTE','d-buy'];
-    if (v <= 2) return ['🟡 COMPRAR NORMAL','d-hold'];
-    return ['🔴 EVITAR AGORA','d-avoid'];
-  }
-  const custom = rules[asset.ticker];
-  const base = custom || (asset.cls==='FII' ? rules.FII : rules.ACAO);
-  if (v <= base.g) return ['🟢 COMPRAR FORTE','d-buy'];
-  if (v <= base.y) return ['🟡 COMPRAR NORMAL','d-hold'];
-  return ['🔴 EVITAR AGORA','d-avoid'];
-}
-
-function reason(asset){
-  const mType = metricTypes[asset.ticker] || 'pvp';
-  if (mType === 'na') return 'Sem métrica aplicável no momento; decisão baseada apenas em preço é limitada.';
-  if (mType === 'pl') return 'Sem P/VP disponível; decisão baseada em P/L (lucro por ação).';
-  if (mType === 'ref') return 'Métrica de referência (fallback) para manter cobertura total; usar como indicativo.';
-  if (asset.cls==='FII') return 'Faixa P/VP de desconto melhora retorno do reinvestimento.';
-  if (asset.cls==='CRIPTO') return 'Regra por variação 24h: queda forte favorece aporte; alta forte pede cautela.';
-  if (asset.cls==='ETF EUA') return 'ETF global: usar múltiplo com disciplina evita comprar esticado.';
-  return 'P/VP baixo aumenta margem de segurança para entrada.';
-}
-
-function withTimeout(promise, ms=12000){
-  return Promise.race([promise, new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')), ms))]);
-}
-
-function parseBrNum(str){
-  return Number(String(str||'').replace(/\./g,'').replace(',', '.'));
-}
-
-async function fetchUsdBrl(){
-  try {
-    const j = await api('/market/asset?ticker=USDT&cls=CRIPTO');
-    if (Number.isFinite(j.usdBrl)) usdBrl = j.usdBrl;
-  } catch {}
-}
-
-async function fetchAssetData(asset){
-  const cls = encodeURIComponent(canonicalClass(asset));
-  const t = encodeURIComponent(asset.ticker);
-  try {
-    const j = await withTimeout(api(`/market/asset?ticker=${t}&cls=${cls}`), 5000);
-    if (Number.isFinite(j.usdBrl)) usdBrl = j.usdBrl;
-    return j;
-  } catch {
-    const ticker = asset.ticker;
-    const clsTxt = asset.cls;
-    const price = ticker==='HGBS11' ? 20.18 : unitPrice(asset);
-    const metric = clsTxt==='CRIPTO' ? null : (Number.isFinite(metricRef[ticker]) ? metricRef[ticker] : null);
-    return { ok:true, ticker, cls: clsTxt, priceBrl: price, metric, metricType: clsTxt==='CRIPTO' ? 'chg24h' : 'pvp', usdBrl };
-  }
-}
 
 async function fetchPvp(asset){
   const j = await fetchAssetData(asset);
