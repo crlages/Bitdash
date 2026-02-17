@@ -92,6 +92,18 @@
 
 <script>
 const API = (window.BITDASH_API_URL || 'https://bitdash-api.crlages.workers.dev').replace(/\/$/, '');
+
+function bootstrapSessionFromUrl(){
+  try {
+    const u = new URL(location.href);
+    const st = String(u.searchParams.get('st') || '').trim();
+    if (st) {
+      localStorage.setItem('bitdash_auth_token', st);
+      u.searchParams.delete('st');
+      history.replaceState({}, '', u.pathname + (u.search ? '?' + u.searchParams.toString() : '') + (u.hash || ''));
+    }
+  } catch {}
+}
 function normalizeTicker(t){ return String(t||'').trim().toUpperCase(); }
 
 async function api(path, method='GET', body){
@@ -337,7 +349,6 @@ document.getElementById('logoutTopBtn').onclick = async ()=>{
   try { await api('/auth/logout','POST',{}); } catch {}
   try { localStorage.removeItem('bitdash_local_user'); } catch {}
   try { localStorage.removeItem('bitdash_auth_token'); } catch {}
-  await updateTopAuthState();
   alert('Sessão encerrada.');
 };
 document.getElementById('clearTopBtn').onclick = async ()=>{
@@ -360,6 +371,9 @@ document.getElementById('clearTopBtn').onclick = async ()=>{
   try { localStorage.setItem('bitdash_portfolio_cleared', '1'); } catch {}
   alert('Carteira limpa localmente.');
 };
+
+bootstrapSessionFromUrl();
+updateTopAuthState();
 
 // Tooltip também no clique (mobile/touch)
 (function(){

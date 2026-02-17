@@ -153,6 +153,18 @@
 <script>
 try { localStorage.removeItem('bitdash_api_url'); } catch {}
 const API = (window.BITDASH_API_URL || 'https://bitdash-api.crlages.workers.dev').replace(/\/$/, '');
+
+function bootstrapSessionFromUrl(){
+  try {
+    const u = new URL(location.href);
+    const st = String(u.searchParams.get('st') || '').trim();
+    if (st) {
+      localStorage.setItem('bitdash_auth_token', st);
+      u.searchParams.delete('st');
+      history.replaceState({}, '', u.pathname + (u.search ? '?' + u.searchParams.toString() : '') + (u.hash || ''));
+    }
+  } catch {}
+}
 const DEFAULT_PORT=[
   {ticker:'MXRF11', qty:120, cls:'FII'},
   {ticker:'HGLG11', qty:60, cls:'FII'},
@@ -520,7 +532,7 @@ const addAssetsBtn = document.getElementById('addAssetsBtn');
 if (addAssetsBtn) addAssetsBtn.addEventListener('click', ()=>{
   try { sessionStorage.setItem('bitdash_portfolio_snapshot', JSON.stringify(portfolio || [])); } catch {}
   try { localStorage.setItem('bitdash_portfolio_snapshot', JSON.stringify(portfolio || [])); } catch {}
-  location.href = 'commercial-add-assets.html';
+  location.href = 'commercial-add-assets.html' + (localStorage.getItem('bitdash_auth_token') ? ('?st=' + encodeURIComponent(localStorage.getItem('bitdash_auth_token'))) : '');
 });
 const authBtnEl = document.getElementById('authBtn');
 if (authBtnEl) authBtnEl.addEventListener('click', ()=>{ location.href = 'commercial-auth.html'; });
@@ -651,6 +663,7 @@ window.addEventListener('resize', () => {
 });
 
 (async function init(){
+  bootstrapSessionFromUrl();
   portfolio = (await loadPortfolio()).map(x=>{
     const ticker = normalizeTicker(x.ticker);
     return { ...x, ticker, cls: classify(ticker) };

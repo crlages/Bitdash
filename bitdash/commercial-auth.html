@@ -59,9 +59,10 @@ async function api(path, method='GET', body){
   }
 }
 
-async function routeByPremium(email, premium){
+async function routeByPremium(email, premium, token){
   // fluxo único: sempre entra no dashboard após login
-  location.href = 'commercial-dashboard.html';
+  const q = token ? ('?st=' + encodeURIComponent(token)) : '';
+  location.href = 'commercial-dashboard.html' + q;
 }
 
 async function checkExistingLogin(){
@@ -76,7 +77,7 @@ async function loginWithGoogleCredential(credential){
     if (token) localStorage.setItem('bitdash_auth_token', token);
     if (email) localStorage.setItem('bitdash_local_user', email);
     statusEl.textContent = 'Login Google OK. Verificando assinatura...';
-    setTimeout(()=>routeByPremium(email, !!j?.premium), 350);
+    setTimeout(()=>routeByPremium(email, !!j?.premium, token), 120);
   } catch (e) {
     if (String(e.message || '').toLowerCase().includes('fetch')) {
       statusEl.textContent = `Google login falhou: não consegui conectar na API (${API}).`;
