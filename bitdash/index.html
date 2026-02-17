@@ -60,7 +60,7 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable14</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable15</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
@@ -240,10 +240,6 @@ async function loadPortfolio(){
     }
   } catch {}
 
-  // mantém estado local de login para não parecer deslogado em falhas momentâneas de sessão
-  const localEmail0 = getLocalPremiumEmail();
-  if (localEmail0 && !currentUser?.email) currentUser = { email: localEmail0, localPremium: true };
-
   try {
     const me = await api('/auth/me');
     currentUser = me.user;
@@ -254,8 +250,8 @@ async function loadPortfolio(){
       loadedFromRemote = true;
     }
   } catch {
+    currentUser = null;
     const localEmail = getLocalPremiumEmail();
-    currentUser = localEmail ? { email: localEmail, localPremium: true } : null;
     if (localEmail) {
       try {
         const localPort = JSON.parse(localStorage.getItem(`bitdash_portfolio_${localEmail}`) || 'null');
@@ -485,7 +481,7 @@ function updateSummary(){
 document.getElementById('refreshBtn').onclick = refresh;
 document.getElementById('refreshNewsBtn').onclick = loadNews;
 document.getElementById('saveBtn').onclick = async ()=>{
-  if (!isPremium()) return;
+  if (!isPremium()) { alert('Faça login premium para salvar na nuvem.'); return; }
   try {
     await api('/portfolio','POST',{ portfolio });
     alert('Carteira salva com sucesso.');
