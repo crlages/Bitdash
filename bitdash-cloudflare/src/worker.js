@@ -1,8 +1,8 @@
 export default {
   async fetch(request, env, ctx) {
+    const C = (res) => cors(res, request);
     try {
       const url = new URL(request.url);
-      const C = (res) => cors(res, request);
 
       if (request.method === 'OPTIONS') return C(new Response(null, { status: 204 }));
 
@@ -72,14 +72,11 @@ export default {
 function cors(res, request = null) {
   const h = new Headers(res.headers);
   const reqOrigin = request?.headers?.get('Origin') || '';
-  const allowList = new Set([
-    'https://bitdash.pages.dev',
-    'https://84fad348.bitdash.pages.dev',
-    'https://3b3ef83e.bitdash.pages.dev',
-    'http://localhost:8001',
-  ]);
 
-  const allowOrigin = allowList.has(reqOrigin) ? reqOrigin : 'https://bitdash.pages.dev';
+  const isPagesOrigin = /^https:\/\/[a-z0-9-]+\.bitdash\.pages\.dev$/i.test(reqOrigin)
+    || reqOrigin === 'https://bitdash.pages.dev';
+  const isLocalOrigin = reqOrigin === 'http://localhost:8001' || reqOrigin === 'http://127.0.0.1:8001';
+  const allowOrigin = (isPagesOrigin || isLocalOrigin) ? reqOrigin : 'https://bitdash.pages.dev';
 
   h.set('Access-Control-Allow-Origin', allowOrigin);
   h.set('Vary', 'Origin');
@@ -417,7 +414,7 @@ async function marketBatch(request) {
 
   // Busca em lote no Yahoo para aumentar cobertura sem perder velocidade
   const yahooSymbols = [...new Set(normalized
-    .filter(a => a.cls !== 'CRIPTO' && /^[A-Z0-9]{4,6}11?$/.test(a.ticker))
+    .filter(a => a.cls !== 'CRIPTO' && /^[A-Z0-9]{2,10}$/.test(a.ticker))
     .map(a => `${a.ticker}.SA`)
   )];
 
@@ -455,6 +452,23 @@ async function marketBatch(request) {
 
     return { ticker, cls, priceBrl, metric, metricType:'pvp', usdBrl };
   });
+
+  // 2ª camada: tenta preencher apenas os faltantes sem bloquear tudo
+  const missing = out.filter(it => it.cls !== 'CRIPTO' && !Number.isFinite(it.priceBrl)).slice(0, 10);
+  await Promise.allSettled(missing.map(async (it) => {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 1200);
+      const u = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(it.ticker + '.SA')}`;
+      const y = await fetch(u, { signal: controller.signal, cf: { cacheTtl: 60, cacheEverything: true } }).then(r => r.json());
+      clearTimeout(timeout);
+      const row = y?.quoteResponse?.result?.[0];
+      const price = Number(row?.regularMarketPrice);
+      const ptb = Number(row?.priceToBook);
+      if (Number.isFinite(price)) it.priceBrl = price;
+      if (!Number.isFinite(it.metric) && Number.isFinite(ptb)) it.metric = ptb;
+    } catch {}
+  }));
 
   return json({ ok:true, items: out, usdBrl });
 }
