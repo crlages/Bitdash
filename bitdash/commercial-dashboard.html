@@ -57,7 +57,7 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-16-hybrid2</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
@@ -147,7 +147,8 @@
   </div>
 
 <script>
-const API = (window.BITDASH_API_URL || localStorage.getItem('bitdash_api_url') || '/api').replace(/\/$/, '');
+try { localStorage.removeItem('bitdash_api_url'); } catch {}
+const API = (window.BITDASH_API_URL || 'https://bitdash-api.crlages.workers.dev').replace(/\/$/, '');
 const DEFAULT_PORT=[
   {ticker:'MXRF11', qty:120, cls:'FII'},
   {ticker:'HGLG11', qty:60, cls:'FII'},
