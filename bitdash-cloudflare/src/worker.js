@@ -429,21 +429,6 @@ async function marketBatch(request, env) {
     return { ticker, cls };
   });
 
-  // aprende tickers em tempo real (inclusive modo grátis), sem depender de carteira salva no DB
-  try {
-    await ensureAssetsUniverseSchema(env);
-    const uniqueTickers = [...new Set(normalized.map(x => x.ticker).filter(Boolean))];
-    for (const t of uniqueTickers) {
-      await env.DB.prepare(`
-        INSERT INTO assets_universe (ticker, name, asset_type, source, is_active, updated_at)
-        VALUES (?, NULL, ?, 'runtime', 1, datetime('now'))
-        ON CONFLICT(ticker) DO UPDATE SET
-          asset_type=COALESCE(excluded.asset_type, assets_universe.asset_type),
-          is_active=1,
-          updated_at=datetime('now')
-      `).bind(t, classifyTickerUniverse(t)).run();
-    }
-  } catch {}
 
   // Busca em lote no Yahoo para aumentar cobertura sem perder velocidade
   const yahooSymbols = [...new Set(normalized

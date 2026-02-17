@@ -57,7 +57,7 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable7</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable8</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
@@ -366,7 +366,7 @@ async function refresh(){
     const payload = {
       assets: portfolio.map(a => ({ ticker: a.ticker, cls: canonicalClass(a) }))
     };
-    const j = await withTimeout(api('/market/batch', 'POST', payload), 4500);
+    const j = await withTimeout(api('/market/batch', 'POST', payload), 15000);
     const items = Array.isArray(j.items) ? j.items : [];
     if (Number.isFinite(j.usdBrl)) usdBrl = j.usdBrl;
 
