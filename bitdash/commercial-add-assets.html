@@ -102,7 +102,6 @@ async function api(path, method='GET', body){
   const r = await fetch(API+path, {
     method,
     headers,
-    credentials: 'include',
     body: body ? JSON.stringify(body) : undefined,
   });
   let j={}; try{ j=await r.json(); }catch{}
@@ -303,11 +302,19 @@ document.getElementById('confirmBtn').onclick = async () => {
     try { localStorage.setItem('bitdash_portfolio_draft', payload); } catch {}
     try { localStorage.removeItem('bitdash_portfolio_cleared'); } catch {}
 
-    // best effort remoto
+    // remoto com erro explícito quando usuário estiver autenticado
+    let loggedEmail = '';
     try {
       const me = await api('/auth/me');
-      if (me?.user?.email) await api('/portfolio','POST',{ portfolio: merged });
+      loggedEmail = String(me?.user?.email || '').trim();
     } catch {}
+
+    if (loggedEmail) {
+      await api('/portfolio','POST',{ portfolio: merged });
+      status.textContent = 'Ativos adicionados e carteira salva na nuvem.';
+    } else {
+      status.textContent = 'Ativos adicionados localmente (sem login premium ativo).';
+    }
 
     location.href='commercial-dashboard.html';
   } catch (e) {

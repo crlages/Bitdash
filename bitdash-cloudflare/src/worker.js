@@ -92,7 +92,6 @@ function cors(res, request = null) {
 
   h.set('Access-Control-Allow-Origin', allowOrigin);
   h.set('Vary', 'Origin');
-  h.set('Access-Control-Allow-Credentials', 'true');
   h.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   h.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   return new Response(res.body, { status: res.status, headers: h });
@@ -150,15 +149,12 @@ async function parseSessionToken(rawToken, secret) {
 }
 
 async function parseSession(request, secret) {
-  const auth = String(request.headers.get('Authorization') || '');
-  if (auth.toLowerCase().startsWith('bearer ')) {
-    const bearer = auth.slice(7).trim();
-    const s = await parseSessionToken(bearer, secret);
-    if (s) return s;
-  }
+  const auth = String(request.headers.get('Authorization') || '').trim();
+  if (!auth.toLowerCase().startsWith('bearer ')) return null;
 
-  const cookieToken = getCookie(request, 'bitdash_token');
-  return parseSessionToken(cookieToken, secret);
+  const bearer = auth.slice(7).trim();
+  if (!bearer) return null;
+  return parseSessionToken(bearer, secret);
 }
 
 function getCookie(request, name) {

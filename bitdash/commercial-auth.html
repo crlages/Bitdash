@@ -49,7 +49,6 @@ async function api(path, method='GET', body){
     const r = await fetch(API+path, {
       method,
       headers,
-      credentials: 'include',
       body: body ? JSON.stringify(body) : undefined,
     });
     let j={}; try{ j=await r.json(); }catch{}
