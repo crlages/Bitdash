@@ -60,7 +60,7 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable17</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable18</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
@@ -229,56 +229,55 @@ function mergePortfolio(base=[], inbound=[]){
 
 async function loadPortfolio(){
   let base = null;
-  let loadedFromRemote = false;
 
-  // rascunho explícito vindo da tela de adicionar ativos (prioridade máxima)
-  try {
-    const draft = JSON.parse(localStorage.getItem('bitdash_portfolio_draft') || 'null');
-    if (Array.isArray(draft)) {
-      try { localStorage.removeItem('bitdash_portfolio_draft'); } catch {}
-      return draft;
-    }
-  } catch {}
-
+  // 1) sempre resolve estado de autenticação primeiro
   try {
     const me = await api('/auth/me');
-    currentUser = me.user;
-    const saved = await api('/portfolio');
-    // IMPORTANT: array vazia também é estado válido (carteira limpa)
-    if (Array.isArray(saved?.portfolio)) {
-      base = saved.portfolio;
-      loadedFromRemote = true;
-    }
+    currentUser = me?.user || null;
   } catch {
     currentUser = null;
-    const localEmail = getLocalPremiumEmail();
-    if (localEmail) {
-      try {
-        const localPort = JSON.parse(localStorage.getItem(`bitdash_portfolio_${localEmail}`) || 'null');
-        if (Array.isArray(localPort)) base = localPort;
-      } catch {}
-    }
   }
 
-  // Sem sessão remota: usa sessão local grátis
-  if (!loadedFromRemote && base == null) {
-    const free = JSON.parse(sessionStorage.getItem('freePortfolio')||'null');
-    if (Array.isArray(free)) base = free;
+  // 2) tenta carregar carteira remota se autenticado
+  if (currentUser?.email) {
+    try {
+      const saved = await api('/portfolio');
+      if (Array.isArray(saved?.portfolio)) base = saved.portfolio; // [] é válido
+    } catch {}
   }
 
-  // Primeira execução sem dado algum
+  // 3) prioridade para rascunho explícito vindo de telas de edição
+  if (base == null) {
+    try {
+      const draft = JSON.parse(localStorage.getItem('bitdash_portfolio_draft') || 'null');
+      if (Array.isArray(draft)) {
+        base = draft;
+        try { localStorage.removeItem('bitdash_portfolio_draft'); } catch {}
+      }
+    } catch {}
+  }
+
+  // 4) fallback local (modo grátis)
+  if (base == null) {
+    try {
+      const free = JSON.parse(sessionStorage.getItem('freePortfolio') || 'null');
+      if (Array.isArray(free)) base = free;
+    } catch {}
+  }
+
+  // 5) primeira execução sem histórico
   if (base == null) base = DEFAULT_PORT.slice();
 
-  // Adiciona ativos recém-inseridos SEM perder carteira existente
+  // 6) inbound complementar (merge)
   let inbound = null;
-  try { inbound = JSON.parse(sessionStorage.getItem('inboundPortfolio')||'null'); } catch {}
+  try { inbound = JSON.parse(sessionStorage.getItem('inboundPortfolio') || 'null'); } catch {}
   if (!Array.isArray(inbound) || !inbound.length) {
-    try { inbound = JSON.parse(localStorage.getItem('bitdash_inbound_portfolio')||'null'); } catch {}
+    try { inbound = JSON.parse(localStorage.getItem('bitdash_inbound_portfolio') || 'null'); } catch {}
   }
   if (Array.isArray(inbound) && inbound.length) {
     const merged = mergePortfolio(base, inbound);
-    sessionStorage.setItem('freePortfolio', JSON.stringify(merged));
-    sessionStorage.removeItem('inboundPortfolio');
+    try { sessionStorage.setItem('freePortfolio', JSON.stringify(merged)); } catch {}
+    try { sessionStorage.removeItem('inboundPortfolio'); } catch {}
     try { localStorage.removeItem('bitdash_inbound_portfolio'); } catch {}
     return merged;
   }
@@ -528,6 +527,7 @@ document.getElementById('clearBtn').onclick = async ()=>{
   }
 
   try { sessionStorage.setItem('freePortfolio', JSON.stringify(portfolio)); } catch {}
+  try { localStorage.setItem('bitdash_portfolio_draft', JSON.stringify(portfolio)); } catch {}
   const localEmail = getLocalPremiumEmail();
   if (localEmail) {
     try { localStorage.setItem(`bitdash_portfolio_${localEmail}`, JSON.stringify(portfolio)); } catch {}
