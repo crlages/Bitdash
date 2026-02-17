@@ -60,7 +60,7 @@
 <body>
   <div class="topbar">
     <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable16</span></h1>
+      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable17</span></h1>
       <div class="muted">Visualize, entenda, decida!</div>
     </div>
     <div class="actions">
@@ -501,7 +501,11 @@ document.getElementById('saveBtn').onclick = async ()=>{
 
 // navegação de botões do topo (evita dependência de onclick inline)
 const addAssetsBtn = document.getElementById('addAssetsBtn');
-if (addAssetsBtn) addAssetsBtn.addEventListener('click', ()=>{ location.href = 'commercial-add-assets.html'; });
+if (addAssetsBtn) addAssetsBtn.addEventListener('click', ()=>{
+  try { sessionStorage.setItem('bitdash_portfolio_snapshot', JSON.stringify(portfolio || [])); } catch {}
+  try { localStorage.setItem('bitdash_portfolio_snapshot', JSON.stringify(portfolio || [])); } catch {}
+  location.href = 'commercial-add-assets.html';
+});
 const authBtnEl = document.getElementById('authBtn');
 if (authBtnEl) authBtnEl.addEventListener('click', ()=>{ location.href = 'commercial-auth.html'; });
 

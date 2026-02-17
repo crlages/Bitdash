@@ -269,33 +269,42 @@ document.getElementById('confirmBtn').onclick = async () => {
     return;
   }
 
+  // Base determinística: snapshot da carteira atual (vindo do dashboard) + fallback sessão
+  let base = [];
   try {
-    // caminho principal: usuário logado -> merge + salva direto no backend
+    const snap = JSON.parse(sessionStorage.getItem('bitdash_portfolio_snapshot') || 'null');
+    if (Array.isArray(snap)) base = snap;
+  } catch {}
+  if (!base.length) {
+    try {
+      const snapLocal = JSON.parse(localStorage.getItem('bitdash_portfolio_snapshot') || 'null');
+      if (Array.isArray(snapLocal)) base = snapLocal;
+    } catch {}
+  }
+  if (!base.length) {
+    try {
+      const free = JSON.parse(sessionStorage.getItem('freePortfolio') || 'null');
+      if (Array.isArray(free)) base = free;
+    } catch {}
+  }
+
+  const merged = mergeByTicker(base, approvedItems);
+  const payload = JSON.stringify(merged);
+
+  // Sempre garante handoff para dashboard
+  try { sessionStorage.setItem('inboundPortfolio', payload); } catch {}
+  try { localStorage.setItem('bitdash_inbound_portfolio', payload); } catch {}
+  try { localStorage.setItem('bitdash_portfolio_draft', payload); } catch {}
+
+  // Se estiver logado, tenta salvar na nuvem (best effort)
+  try {
     const me = await api('/auth/me');
     if (me?.user?.email) {
-      let current = [];
-      try {
-        const saved = await api('/portfolio');
-        if (Array.isArray(saved?.portfolio)) current = saved.portfolio;
-      } catch {}
-      const merged = mergeByTicker(current, approvedItems);
       await api('/portfolio','POST',{ portfolio: merged });
-      const payload = JSON.stringify(merged);
-      sessionStorage.setItem('freePortfolio', payload);
-      try { localStorage.setItem('bitdash_portfolio_draft', payload); } catch {}
       status.textContent = 'Carteira atualizada e salva com sucesso.';
-      location.href='commercial-dashboard.html';
-      return;
     }
   } catch {}
 
-  // fallback modo grátis
-  const free = JSON.parse(sessionStorage.getItem('freePortfolio') || '[]');
-  const mergedFree = mergeByTicker(Array.isArray(free)?free:[], approvedItems);
-  const payload = JSON.stringify(mergedFree);
-  sessionStorage.setItem('inboundPortfolio', payload);
-  try { localStorage.setItem('bitdash_inbound_portfolio', payload); } catch {}
-  try { localStorage.setItem('bitdash_portfolio_draft', payload); } catch {}
   location.href='commercial-dashboard.html';
 };
 
