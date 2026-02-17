@@ -43,7 +43,7 @@ export default {
       }
 
       if (url.pathname === '/market/batch' && request.method === 'POST') {
-        return C(await marketBatch(request));
+        return C(await marketBatch(request, env));
       }
 
       if (url.pathname === '/assets/search' && request.method === 'GET') {
@@ -52,6 +52,10 @@ export default {
 
       if (url.pathname === '/assets/sync' && request.method === 'POST') {
         return C(await assetsSync(env));
+      }
+
+      if (url.pathname === '/fundamentals/sync' && request.method === 'POST') {
+        return C(await fundamentalsSync(env));
       }
 
       if (url.pathname === '/payments/dev-approve' && request.method === 'POST') {
@@ -361,7 +365,10 @@ const PRICE_REF = {
 const METRIC_REF = {
   MXRF11: 1.04, HGLG11: 0.95, PETR4: 1.18, WEGE3: 8.4,
   HGBS11: 0.97, KNRI11: 0.93, BBAS3: 1.12, VALE3: 1.45,
-  VISC11: 0.89, XPLG11: 0.86
+  VISC11: 0.89, XPLG11: 0.86,
+  ITUB4: 1.32, ABEV3: 2.55, EGIE3: 2.10, VBBR3: 1.38,
+  KLBN11: 1.22, KNIP11: 0.98, XPML11: 0.92, BTLG11: 0.95,
+  KNCR11: 1.01, HGRU11: 0.97, IRDM11: 0.89
 };
 
 const CRYPTO_MAP = { BTC:'bitcoin', ETH:'ethereum', SOL:'solana', XRP:'ripple', BNB:'binancecoin', ADA:'cardano', DOGE:'dogecoin', LTC:'litecoin', USDT:'tether' };
@@ -403,7 +410,7 @@ function decodeHtml(str='') {
 }
 
 
-async function marketBatch(request) {
+async function marketBatch(request, env) {
   const body = await request.json().catch(()=>({}));
   const assets = Array.isArray(body?.assets) ? body.assets : [];
 
@@ -421,6 +428,22 @@ async function marketBatch(request) {
     const cls = clsRaw || (ticker.endsWith('11') ? 'FII' : 'ACAO');
     return { ticker, cls };
   });
+
+  // aprende tickers em tempo real (inclusive modo grátis), sem depender de carteira salva no DB
+  try {
+    await ensureAssetsUniverseSchema(env);
+    const uniqueTickers = [...new Set(normalized.map(x => x.ticker).filter(Boolean))];
+    for (const t of uniqueTickers) {
+      await env.DB.prepare(`
+        INSERT INTO assets_universe (ticker, name, asset_type, source, is_active, updated_at)
+        VALUES (?, NULL, ?, 'runtime', 1, datetime('now'))
+        ON CONFLICT(ticker) DO UPDATE SET
+          asset_type=COALESCE(excluded.asset_type, assets_universe.asset_type),
+          is_active=1,
+          updated_at=datetime('now')
+      `).bind(t, classifyTickerUniverse(t)).run();
+    }
+  } catch {}
 
   // Busca em lote no Yahoo para aumentar cobertura sem perder velocidade
   const yahooSymbols = [...new Set(normalized
@@ -478,6 +501,8 @@ async function marketBatch(request) {
     } catch {}
   }
 
+  const fundamentalsByTicker = await loadFundamentalsForTickers(env, normalized.map(x => x.ticker));
+
   const out = normalized.map(({ ticker, cls }) => {
     if (cls === 'CRIPTO') {
       const usd = CRYPTO_FALLBACK[ticker] || null;
@@ -494,6 +519,7 @@ async function marketBatch(request) {
     let metricType = 'na';
     const clsNorm = String(cls || '').toUpperCase();
     const isEquityLike = clsNorm === 'ACAO' || clsNorm === 'AÇÃO' || clsNorm === 'BDR' || clsNorm === 'ETF' || clsNorm === 'ETF EUA';
+    const f = fundamentalsByTicker[ticker] || {};
 
     if (Number.isFinite(METRIC_REF[ticker])) {
       metric = METRIC_REF[ticker];
@@ -501,8 +527,14 @@ async function marketBatch(request) {
     } else if (Number.isFinite(y?.pvp)) {
       metric = y.pvp;
       metricType = 'pvp';
+    } else if (Number.isFinite(f?.pvp)) {
+      metric = f.pvp;
+      metricType = 'pvp';
     } else if (isEquityLike && Number.isFinite(y?.pe)) {
       metric = y.pe;
+      metricType = 'pl';
+    } else if (isEquityLike && Number.isFinite(f?.pl)) {
+      metric = f.pl;
       metricType = 'pl';
     }
 
@@ -571,6 +603,146 @@ async function ensureAssetsUniverseSchema(env) {
   await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_assets_universe_type ON assets_universe(asset_type)').run();
 }
 
+async function ensureFundamentalsSchema(env) {
+  await env.DB.prepare(`
+    CREATE TABLE IF NOT EXISTS fundamentals_cache (
+      ticker TEXT PRIMARY KEY,
+      pvp REAL,
+      pl REAL,
+      source TEXT NOT NULL DEFAULT 'brapi',
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `).run();
+  await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_fundamentals_updated ON fundamentals_cache(updated_at)').run();
+}
+
+async function loadFundamentalsForTickers(env, tickers) {
+  await ensureFundamentalsSchema(env);
+  const list = [...new Set((tickers || []).map(t => String(t || '').trim().toUpperCase()).filter(Boolean))].slice(0, 200);
+  if (!list.length) return {};
+
+  const placeholders = list.map(() => '?').join(',');
+  const q = `SELECT ticker, pvp, pl FROM fundamentals_cache WHERE ticker IN (${placeholders})`;
+  const rows = await env.DB.prepare(q).bind(...list).all();
+  const out = {};
+  for (const r of (rows?.results || [])) {
+    out[String(r.ticker).toUpperCase()] = {
+      pvp: Number.isFinite(Number(r.pvp)) ? Number(r.pvp) : null,
+      pl: Number.isFinite(Number(r.pl)) ? Number(r.pl) : null,
+    };
+  }
+  return out;
+}
+
+async function fundamentalsSync(env) {
+  await ensureAssetsUniverseSchema(env);
+  await ensureFundamentalsSchema(env);
+
+  const rows = await env.DB.prepare(`
+    SELECT ticker
+    FROM assets_universe
+    WHERE is_active = 1
+    ORDER BY updated_at DESC
+    LIMIT 350
+  `).all();
+  const tickers = (rows?.results || []).map(r => String(r.ticker || '').toUpperCase()).filter(Boolean);
+  if (!tickers.length) return json({ ok: true, synced: 0 });
+
+  let synced = 0;
+
+  // 1) seed com métricas de referência já conhecidas
+  for (const t of tickers) {
+    const pvpRef = Number(METRIC_REF[t]);
+    if (Number.isFinite(pvpRef)) {
+      await env.DB.prepare(`
+        INSERT INTO fundamentals_cache (ticker, pvp, pl, source, updated_at)
+        VALUES (?, ?, NULL, 'seed', datetime('now'))
+        ON CONFLICT(ticker) DO UPDATE SET
+          pvp=COALESCE(excluded.pvp, fundamentals_cache.pvp),
+          updated_at=datetime('now')
+      `).bind(t, pvpRef).run();
+      synced++;
+    }
+  }
+
+  // 2) tenta enriquecer por lotes no Yahoo (ptb/pe)
+  const yahooSymbols = tickers.map(t => `${t}.SA`);
+  const chunkSize = 60;
+  for (let i = 0; i < yahooSymbols.length; i += chunkSize) {
+    const chunk = yahooSymbols.slice(i, i + chunkSize);
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3500);
+      const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(chunk.join(','))}`;
+      const y = await fetch(url, { signal: controller.signal, cf: { cacheTtl: 1200, cacheEverything: true } }).then(r => r.json());
+      clearTimeout(timeout);
+      const rowsY = y?.quoteResponse?.result || [];
+      for (const r of rowsY) {
+        const symbol = String(r?.symbol || '').toUpperCase();
+        const ticker = symbol.replace('.SA', '');
+        if (!ticker) continue;
+        const pvp = Number(r?.priceToBook);
+        const pe = Number(r?.trailingPE);
+        const fpe = Number(r?.forwardPE);
+        await env.DB.prepare(`
+          INSERT INTO fundamentals_cache (ticker, pvp, pl, source, updated_at)
+          VALUES (?, ?, ?, 'yahoo', datetime('now'))
+          ON CONFLICT(ticker) DO UPDATE SET
+            pvp=COALESCE(excluded.pvp, fundamentals_cache.pvp),
+            pl=COALESCE(excluded.pl, fundamentals_cache.pl),
+            source='yahoo',
+            updated_at=datetime('now')
+        `).bind(
+          ticker,
+          Number.isFinite(pvp) ? pvp : null,
+          Number.isFinite(pe) ? pe : (Number.isFinite(fpe) ? fpe : null)
+        ).run();
+        synced++;
+      }
+    } catch {}
+  }
+
+  // 3) BRAPI como complemento
+  const chunkSizeB = 40;
+  for (let i = 0; i < tickers.length; i += chunkSizeB) {
+    const chunk = tickers.slice(i, i + chunkSizeB);
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
+      const url = `https://brapi.dev/api/quote/${encodeURIComponent(chunk.join(','))}?fundamental=true&dividends=false`;
+      const j = await fetch(url, { signal: controller.signal, cf: { cacheTtl: 1800, cacheEverything: true } }).then(r => r.json());
+      clearTimeout(timeout);
+
+      const res = Array.isArray(j?.results) ? j.results : [];
+      for (const r of res) {
+        const ticker = String(r?.symbol || '').toUpperCase();
+        if (!ticker) continue;
+
+        const key = r?.fundamental?.financialData || r?.fundamental || {};
+        const pvp = Number(key?.priceToBook || key?.priceToBookRatio || key?.pvp);
+        const pl = Number(key?.priceEarnings || key?.priceToEarnings || key?.pe || key?.trailingPE);
+
+        await env.DB.prepare(`
+          INSERT INTO fundamentals_cache (ticker, pvp, pl, source, updated_at)
+          VALUES (?, ?, ?, 'brapi', datetime('now'))
+          ON CONFLICT(ticker) DO UPDATE SET
+            pvp=COALESCE(excluded.pvp, fundamentals_cache.pvp),
+            pl=COALESCE(excluded.pl, fundamentals_cache.pl),
+            source='brapi',
+            updated_at=datetime('now')
+        `).bind(
+          ticker,
+          Number.isFinite(pvp) ? pvp : null,
+          Number.isFinite(pl) ? pl : null
+        ).run();
+        synced++;
+      }
+    } catch {}
+  }
+
+  return json({ ok: true, synced });
+}
+
 function classifyTickerUniverse(ticker='') {
   const t = String(ticker).toUpperCase();
   if (/^[A-Z0-9]{4,10}11$/.test(t)) return 'FUNDO';
@@ -600,6 +772,22 @@ async function assetsSync(env) {
     out.push({ ticker: t, name: null, asset_type: 'FUNDO' });
   }
 
+  // adiciona tickers já usados por usuários (carteiras salvas)
+  try {
+    const pr = await env.DB.prepare('SELECT data_json FROM portfolios ORDER BY updated_at DESC LIMIT 300').all();
+    for (const row of (pr?.results || [])) {
+      try {
+        const arr = JSON.parse(String(row?.data_json || '[]'));
+        if (!Array.isArray(arr)) continue;
+        for (const it of arr) {
+          const ticker = String(it?.ticker || '').trim().toUpperCase();
+          if (!ticker) continue;
+          out.push({ ticker, name: null, asset_type: classifyTickerUniverse(ticker) });
+        }
+      } catch {}
+    }
+  } catch {}
+
   const byTicker = new Map();
   for (const a of out) byTicker.set(a.ticker, a);
   const unique = [...byTicker.values()];
@@ -616,7 +804,15 @@ async function assetsSync(env) {
     `).bind(a.ticker, a.name, a.asset_type).run();
   }
 
-  return json({ ok: true, synced: unique.length });
+  // Atualiza fundamentos em seguida para reduzir "indisponível" no dashboard
+  let fundamentalsSynced = 0;
+  try {
+    const fs = await fundamentalsSync(env);
+    const fjson = await fs.json();
+    fundamentalsSynced = Number(fjson?.synced || 0);
+  } catch {}
+
+  return json({ ok: true, synced: unique.length, fundamentalsSynced });
 }
 
 async function assetsSearch(request, env) {
