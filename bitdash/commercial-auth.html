@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Login Premium</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    :root{--bg:#0b1020;--card:#121a33;--text:#e8edff;--muted:#9aa7d8;--line:#2b3d72;--btn:#1b2d5e;--btnLine:#3d58a6}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:linear-gradient(180deg,#0b1020,#0d1328);color:var(--text);font-family:Inter,Segoe UI,Arial;padding:20px}
+    .card{width:100%;max-width:760px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+    h1{margin-top:0}
+    .muted{color:var(--muted)}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+    .sep{margin:12px 0;color:#8ca0de;font-size:.9rem;display:flex;align-items:center;gap:10px}
+    .sep::before,.sep::after{content:'';flex:1;height:1px;background:#2d3f74}
+    #googleWrap{display:flex;justify-content:center;min-height:42px}
+    button,a.btn{background:var(--btn);color:#fff;border:1px solid var(--btnLine);border-radius:9px;padding:9px 12px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Login Premium</h1>
+    <div class="muted">Entre com Google. O sistema usa a conta já logada no seu navegador/dispositivo quando possível.</div>
+
+    <div class="row">
+      <button onclick="location.href='commercial-dashboard.html'">Voltar</button>
+    </div>
+
+    <div class="sep">Entrar com Google</div>
+    <div id="googleWrap"></div>
+
+    <div id="status" class="muted" style="margin-top:10px;"></div>
+  </div>
+
+<script>
+const DEFAULT_API = '/api';
+const API = (window.BITDASH_API_URL || localStorage.getItem('bitdash_api_url') || DEFAULT_API).replace(/\/$/, '');
+const GOOGLE_CLIENT_ID = '90657228527-vg76ohma7rj6pkpc7p9sk4spk13dlbc1.apps.googleusercontent.com'; // Client ID Web do Google Cloud
+
+const statusEl = document.getElementById('status');
+
+async function api(path, method='GET', body){
+  try {
+    const r = await fetch(API+path, {
+      method,
+      headers: {'Content-Type':'application/json'},
+      credentials: 'include',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    let j={}; try{ j=await r.json(); }catch{}
+    if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
+    return j;
+  } catch (e) {
+    throw e;
+  }
+}
+
+async function routeByPremium(email, premium){
+  if (premium) {
+    location.href = 'commercial-dashboard.html';
+    return;
+  }
+  location.href = `commercial-premium-payment.html?email=${encodeURIComponent(email || '')}`;
+}
+
+async function checkExistingLogin(){
+  try {
+    const j = await api('/auth/me');
+    const email = j?.user?.email || '';
+    await routeByPremium(email, !!j?.premium);
+  } catch {}
+}
+
+async function loginWithGoogleCredential(credential){
+  try {
+    const j = await api('/auth/google','POST',{ credential });
+    const email = j?.user?.email || '';
+    if (email) localStorage.setItem('bitdash_local_user', email);
+    statusEl.textContent = 'Login Google OK. Verificando assinatura...';
+    setTimeout(()=>routeByPremium(email, !!j?.premium), 350);
+  } catch (e) {
+    if (String(e.message || '').toLowerCase().includes('fetch')) {
+      statusEl.textContent = `Google login falhou: não consegui conectar na API (${API}).`;
+      return;
+    }
+    statusEl.textContent = `Google login falhou: ${e.message}`;
+  }
+}
+
+function initGoogleLogin(attempt = 0){
+  const wrap = document.getElementById('googleWrap');
+  if (!GOOGLE_CLIENT_ID) {
+    wrap.innerHTML = '<span class="muted">Login Google aguardando configuração do Client ID.</span>';
+    return;
+  }
+
+  if (!window.google?.accounts?.id) {
+    // injeta SDK dinamicamente para reduzir problemas de carregamento assíncrono
+    if (!document.getElementById('google-gsi-sdk')) {
+      const s = document.createElement('script');
+      s.id = 'google-gsi-sdk';
+      s.src = 'https://accounts.google.com/gsi/client';
+      s.async = true;
+      s.defer = true;
+      s.onload = () => initGoogleLogin(0);
+      s.onerror = () => {
+        wrap.innerHTML = '<span class="muted">Falha ao carregar SDK Google (rede/bloqueio).</span>';
+      };
+      document.head.appendChild(s);
+    }
+
+    if (attempt < 30) {
+      wrap.innerHTML = '<span class="muted">Carregando login Google...</span>';
+      setTimeout(() => initGoogleLogin(attempt + 1), 250);
+      return;
+    }
+
+    wrap.innerHTML = '<span class="muted">SDK do Google não carregou. Verifique bloqueador/privacidade do navegador.</span>';
+    return;
+  }
+
+  window.google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    auto_select: true,
+    callback: (resp) => loginWithGoogleCredential(resp.credential),
+  });
+
+  wrap.innerHTML = '';
+  window.google.accounts.id.renderButton(wrap, {
+    type: 'standard',
+    theme: 'outline',
+    size: 'large',
+    text: 'signin_with',
+    shape: 'pill',
+  });
+
+  // tenta usar a conta Google já logada no dispositivo
+  window.google.accounts.id.prompt();
+}
+
+checkExistingLogin();
+initGoogleLogin();
+</script>
+</body>
+</html>

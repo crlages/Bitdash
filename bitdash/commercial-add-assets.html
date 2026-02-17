@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Adicionar Ativos</title>
+  <style>
+    body{margin:0;background:#0b1020;color:#e8edff;font-family:Inter,Segoe UI,Arial;padding:20px}
+    .muted{color:#9aa7d8}
+    .layout{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media (max-width:980px){.layout{grid-template-columns:1fr}}
+    .card{background:#121a33;border:1px solid #2b3d72;border-radius:14px;padding:14px}
+    textarea{width:100%;min-height:240px;background:#0f1731;color:#fff;border:1px solid #334a87;border-radius:10px;padding:10px;font-family:Consolas,monospace}
+    button{background:#1b2d5e;color:#fff;border:1px solid #3d58a6;border-radius:9px;padding:8px 12px;cursor:pointer}
+    button[disabled]{opacity:.5;cursor:not-allowed}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    table{width:100%;border-collapse:collapse;font-size:.94rem;margin-top:8px}
+    th,td{padding:8px;border-bottom:1px solid #243566;text-align:left}
+    th{color:#9aa7d8}
+    .ok{color:#8ef0b7}.bad{color:#ffb1b1}
+    .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:.82rem}
+    .pill.ok{background:rgba(53,208,127,.16)} .pill.bad{background:rgba(255,107,107,.18)}
+    .tooltip-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center}
+    .info-dot{
+      width:20px;height:20px;border-radius:999px;border:1px solid #4f6fc7;
+      display:inline-flex;align-items:center;justify-content:center;
+      font-weight:700;font-size:.8rem;color:#bcd0ff;background:#1a2a57;cursor:help;
+      user-select:none;
+    }
+    .tooltip{
+      position:absolute;top:26px;left:0;z-index:10;width:min(420px,75vw);
+      background:#0f1731;border:1px solid #3b56a2;border-radius:10px;padding:10px;
+      color:#dce6ff;font-size:.88rem;line-height:1.35;display:none;box-shadow:0 10px 24px rgba(0,0,0,.35);
+      white-space:normal;
+    }
+    .tooltip-wrap:hover .tooltip,.tooltip-wrap.open .tooltip{display:block}
+  </style>
+</head>
+<body>
+  <h1 style="margin-top:0">Adicionar novos ativos</h1>
+
+  <div class="row" style="margin-bottom:10px;">
+    <div class="muted"><strong>Suporta apenas ativos da B3</strong></div>
+    <div class="tooltip-wrap" id="infoTip" aria-label="Informações de tipos de ativos da B3">
+      <span class="info-dot">i</span>
+      <div class="tooltip">
+        <strong>Tipos de Ativos B3:</strong><br/>
+        Ações: Parte do capital social de uma empresa.<br/>
+        FIIs: Fundos de Investimento Imobiliário.<br/>
+        ETFs: Exchange Traded Funds (fundos de índice).<br/>
+        BDRs: Brazilian Depositary Receipts (ações estrangeiras negociadas no Brasil).<br/>
+        Derivativos: Contratos futuros e opções (dólar, índice, commodities).
+      </div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="card">
+      <h3 style="margin-top:0">1) Inserir ativos</h3>
+      <div class="muted">Ex.: <code>PETR4 20 MXRF11 120 BOVA11 10 AAPL34 15 WDOFUT 2</code></div>
+      <textarea id="raw" placeholder="Cole os ativos aqui..."></textarea>
+      <div class="row" style="margin-top:10px;">
+        <button id="analyzeBtn">Avaliar ativos</button>
+        <button onclick="location.href='commercial-dashboard.html'">Voltar sem salvar</button>
+      </div>
+      <div id="status" class="muted" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0">2) Pré-avaliação</h3>
+      <div class="row" style="margin-bottom:8px;">
+        <span class="pill ok" id="okCount">Válidos: 0</span>
+        <span class="pill bad" id="badCount">Reprovados: 0</span>
+      </div>
+      <table>
+        <thead><tr><th>Ticker</th><th>Qtd</th><th>Tipo</th><th>Status</th><th>Motivo</th></tr></thead>
+        <tbody id="reviewRows"></tbody>
+      </table>
+      <div class="row" style="margin-top:10px;">
+        <button id="confirmBtn" disabled>Confirmar e enviar para precificação</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+function normalizeTicker(t){ return String(t||'').trim().toUpperCase(); }
+
+function classifyB3(ticker){
+  // FIIs e ETFs (na prática muitos ETFs terminam em 11)
+  if (/^[A-Z]{4}11$/.test(ticker)) {
+    const etfKnown = new Set(['BOVA11','SMAL11','IVVB11','DIVO11','XFIX11','GOVE11','SPXI11','XBOV11','FIND11']);
+    if (etfKnown.has(ticker)) return 'ETF';
+    return 'FII';
+  }
+
+  // Ações (ex: PETR4, WEGE3)
+  if (/^[A-Z]{4}(3|4|5|6)$/.test(ticker)) return 'AÇÃO';
+
+  // BDRs (ex: AAPL34, MSFT34)
+  if (/^[A-Z]{4}\d{2}$/.test(ticker)) return 'BDR';
+
+  // Derivativos (padrões simplificados para opções/futuros)
+  if (/^[A-Z]{4}[A-X]\d{1,2}$/.test(ticker)) return 'DERIVATIVO'; // opções
+  if (/^(WDO|WIN|DOL|IND)[A-Z0-9]{1,6}$/.test(ticker)) return 'DERIVATIVO'; // mini/cheio futuros
+
+  return null;
+}
+
+function parseRaw(text){
+  const up = String(text||'').toUpperCase().replace(/[\n\t;]+/g,' ');
+  const re = /\b([A-Z]{2,12}\d{0,3})\b\s+(\d{1,9}(?:[\.,]\d+)?)\b/g;
+  const map = new Map();
+  let m;
+  while((m=re.exec(up))!==null){
+    const ticker = normalizeTicker(m[1]);
+    const qty = Number(String(m[2]).replace(',', '.'));
+    if (!Number.isFinite(qty) || qty <= 0) continue;
+    map.set(ticker, (map.get(ticker)||0) + qty);
+  }
+  return [...map.entries()].map(([ticker, qty]) => ({ ticker, qty }));
+}
+
+function validateAsset(item){
+  const type = classifyB3(item.ticker);
+  if (!type) {
+    return { ...item, type: '-', ok:false, reason:'Ticker fora dos tipos suportados da B3.' };
+  }
+  return { ...item, type, ok:true, reason:'Aprovado para carteira e precificação.' };
+}
+
+let approvedItems = [];
+
+function mapTypeToDashboardClass(type){
+  // dashboard atual trabalha melhor com AÇÃO/FII; ETF/BDR/DERIVATIVO entram como AÇÃO para fluxo atual
+  if (type === 'FII') return 'FII';
+  return 'AÇÃO';
+}
+
+function renderReview(rows){
+  const tbody = document.getElementById('reviewRows');
+  tbody.innerHTML = '';
+
+  let ok = 0, bad = 0;
+  for (const r of rows) {
+    if (r.ok) ok++; else bad++;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${r.ticker}</strong></td>
+      <td>${Number(r.qty).toLocaleString('pt-BR',{maximumFractionDigits:8})}</td>
+      <td>${r.type}</td>
+      <td class="${r.ok?'ok':'bad'}"><strong>${r.ok?'APROVADO':'REPROVADO'}</strong></td>
+      <td>${r.reason}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  document.getElementById('okCount').textContent = `Válidos: ${ok}`;
+  document.getElementById('badCount').textContent = `Reprovados: ${bad}`;
+  document.getElementById('confirmBtn').disabled = ok === 0;
+
+  approvedItems = rows.filter(x=>x.ok).map(x=>({ ticker:x.ticker, qty:x.qty, cls:mapTypeToDashboardClass(x.type) }));
+}
+
+document.getElementById('analyzeBtn').onclick = () => {
+  const raw = document.getElementById('raw').value || '';
+  const parsed = parseRaw(raw);
+  const status = document.getElementById('status');
+
+  if (!parsed.length) {
+    status.textContent = 'Nada reconhecido. Use padrão: TICKER + quantidade.';
+    renderReview([]);
+    return;
+  }
+
+  const reviewed = parsed.map(validateAsset);
+  renderReview(reviewed);
+  status.textContent = 'Pré-avaliação concluída. Confirme para enviar apenas os aprovados.';
+};
+
+document.getElementById('confirmBtn').onclick = () => {
+  const status = document.getElementById('status');
+  if (!approvedItems.length) {
+    status.textContent = 'Nenhum ativo aprovado para envio.';
+    return;
+  }
+  sessionStorage.setItem('inboundPortfolio', JSON.stringify(approvedItems));
+  location.href='commercial-dashboard.html';
+};
+
+
+// Tooltip também no clique (mobile/touch)
+(function(){
+  const tip = document.getElementById('infoTip');
+  if (!tip) return;
+
+  tip.addEventListener('click', (e) => {
+    e.stopPropagation();
+    tip.classList.toggle('open');
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!tip.contains(e.target)) tip.classList.remove('open');
+  });
+})();
+
+</script>
+</body>
+</html>

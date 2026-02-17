@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assinar Premium - Bitdash</title>
+  <style>
+    :root { --bg:#0b1020; --card:#121a33; --text:#e8ecff; --muted:#9aa7d8; --line:#233565; --btn:#1a2a57; --btnLine:#3552a3; }
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:linear-gradient(180deg,#0b1020,#0d1328);color:var(--text);font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;padding:20px}
+    .card{width:100%;max-width:760px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px}
+    h1{margin:0 0 10px}.muted{color:var(--muted)}
+    .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+    a.btn,button{appearance:none;text-decoration:none;background:var(--btn);color:var(--text);border:1px solid var(--btnLine);border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center}
+    .ghost{background:transparent;border-color:#3a4f96}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Assinatura Premium</h1>
+    <p class="muted">Assine para liberar recursos premium e salvar seus ativos na nuvem.</p>
+
+    <div class="row">
+      <a class="btn" target="_blank" rel="noopener noreferrer" href="https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=676bee4383cb4d3ebf6393efa9af6e67">Assinar no Mercado Pago</a>
+      <button id="refreshBtn">Já assinei, atualizar status</button>
+      <a class="btn ghost" href="commercial-auth.html">Voltar ao Login</a>
+    </div>
+
+    <p id="status" class="muted" style="margin-top:10px"></p>
+  </div>
+
+<script>
+const API = (window.BITDASH_API_URL || localStorage.getItem('bitdash_api_url') || '/api').replace(/\/$/, '');
+const statusEl = document.getElementById('status');
+
+async function api(path, method='GET', body){
+  const r = await fetch(API+path, {
+    method,
+    headers: {'Content-Type':'application/json'},
+    credentials: 'include',
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let j={}; try{ j=await r.json(); }catch{}
+  if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
+  return j;
+}
+
+async function refreshPremium(){
+  statusEl.textContent = 'Verificando assinatura...';
+  try {
+    const me = await api('/auth/me');
+    if (me?.premium) {
+      statusEl.textContent = 'Assinatura ativa. Redirecionando...';
+      setTimeout(()=>location.href='commercial-dashboard.html', 500);
+      return;
+    }
+    statusEl.textContent = 'Assinatura ainda não ativa. Se acabou de pagar, aguarde alguns segundos e tente novamente.';
+  } catch (e) {
+    statusEl.textContent = `Falha ao consultar status: ${e.message}`;
+  }
+}
+
+document.getElementById('refreshBtn').onclick = refreshPremium;
+</script>
+</body></html>

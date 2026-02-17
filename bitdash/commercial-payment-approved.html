@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pagamento em análise - Bitdash</title>
+  <style>
+    :root { --bg:#0b1020; --card:#121a33; --text:#e8ecff; --muted:#9aa7d8; --line:#233565; --btn:#1a2a57; --btnLine:#3552a3; }
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:linear-gradient(180deg,#0b1020,#0d1328);color:var(--text);font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;padding:20px}
+    .card{width:100%;max-width:760px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px}
+    .muted{color:var(--muted)}
+    .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+    a.btn,button{appearance:none;text-decoration:none;background:var(--btn);color:var(--text);border:1px solid var(--btnLine);border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1 style="margin-top:0">Pagamento recebido</h1>
+    <p class="muted">Estamos confirmando sua assinatura premium. O status pode levar alguns instantes para atualizar.</p>
+
+    <div class="row">
+      <button id="checkBtn">Atualizar status agora</button>
+      <a class="btn" href="commercial-auth.html">Voltar ao login</a>
+    </div>
+
+    <p id="status" class="muted" style="margin-top:10px"></p>
+  </div>
+
+<script>
+const API = (window.BITDASH_API_URL || localStorage.getItem('bitdash_api_url') || '/api').replace(/\/$/, '');
+const statusEl = document.getElementById('status');
+
+async function api(path, method='GET', body){
+  const r = await fetch(API+path, {
+    method,
+    headers: {'Content-Type':'application/json'},
+    credentials: 'include',
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let j={}; try{ j=await r.json(); }catch{}
+  if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
+  return j;
+}
+
+async function check(){
+  statusEl.textContent = 'Consultando assinatura...';
+  try {
+    const me = await api('/auth/me');
+    if (me?.premium) {
+      statusEl.textContent = 'Premium ativo! Redirecionando ao dashboard...';
+      setTimeout(()=>location.href='commercial-dashboard.html', 500);
+      return;
+    }
+    statusEl.textContent = 'Ainda sem confirmação de assinatura. Tente novamente em alguns segundos.';
+  } catch (e) {
+    statusEl.textContent = `Falha: ${e.message}`;
+  }
+}
+
+document.getElementById('checkBtn').onclick = check;
+check();
+</script>
+</body>
+</html>
