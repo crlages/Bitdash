@@ -188,6 +188,7 @@ function renderDiag(extra={}){
     ts: new Date().toISOString(),
     localUser: localStorage.getItem('bitdash_local_user') || null,
     ...parseTokenLocal(),
+    authBtnText: (document.getElementById('authBtn')?.textContent || null),
     ...extra,
   };
   el.textContent = '[BITDASH DIAG]\n' + JSON.stringify(base, null, 2);
@@ -393,6 +394,7 @@ function render(){
   document.getElementById('mode').textContent = isPremium()
     ? 'Modo premium: pode salvar e recuperar depois.'
     : 'Modo grátis: ao sair do site, os dados podem ser perdidos (amostra).';
+  syncAuthBadge();
 
   const invFiis = document.getElementById('invFiis'); invFiis.innerHTML='';
   const invAcoes = document.getElementById('invAcoes'); invAcoes.innerHTML='';
@@ -732,6 +734,7 @@ window.addEventListener('resize', () => {
   setTimeout(loadNews, 150);
   setTimeout(syncAuthBadge, 50);
   setTimeout(syncAuthBadge, 500);
+  setInterval(syncAuthBadge, 1000);
 })();
 </script>
 </body>
