@@ -191,6 +191,19 @@ function renderDiag(extra={}){
     authBtnText: (document.getElementById('authBtn')?.textContent || null),
     ...extra,
   };
+  try {
+    const email = String(base.email || base.localUser || '').trim().toLowerCase();
+    if (email) {
+      const btn = document.getElementById('authBtn');
+      const saveBtn = document.getElementById('saveBtn');
+      const logoutBtn = document.getElementById('logoutBtn');
+      if (btn) btn.textContent = `Premium: ${email}`;
+      if (saveBtn) saveBtn.classList.remove('hidden');
+      if (logoutBtn) logoutBtn.classList.remove('hidden');
+      base.authBtnText = btn?.textContent || base.authBtnText;
+      base.forcedAuthUi = true;
+    }
+  } catch {}
   el.textContent = '[BITDASH DIAG]\n' + JSON.stringify(base, null, 2);
 }
 
