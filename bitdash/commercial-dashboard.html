@@ -55,7 +55,10 @@
     .info-tip{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:999px;border:1px solid #4f6fc7;background:#1a2a57;color:#cfe0ff;font-size:.75rem;font-weight:700;cursor:help;vertical-align:middle;margin-left:6px;position:relative}
     .info-tip .tip-box{display:none;position:absolute;top:24px;left:0;z-index:20;width:min(420px,78vw);background:#0f1731;border:1px solid #3b56a2;border-radius:10px;padding:10px;color:#dce6ff;font-size:.86rem;line-height:1.35;box-shadow:0 10px 24px rgba(0,0,0,.35)}
     .info-tip:hover .tip-box,.info-tip.open .tip-box{display:block}
-  </style>
+  
+    #diagPanel{margin-top:12px;padding:10px;border:1px dashed #3d58a6;border-radius:10px;background:#0a132e;color:#bcd0ff;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;display:none}
+    #diagPanel.show{display:block}
+    </style>
 </head>
 <body>
   <div class="topbar">
@@ -148,11 +151,47 @@
       <thead><tr><th>Ativo</th><th>Classe</th><th>Métrica (P/VP | P/L | Ref.)</th><th>Decisão</th><th>Motivo</th></tr></thead>
       <tbody id="decisionRows"></tbody>
     </table>
+  <pre id="diagPanel"></pre>
   </div>
 
 <script>
 try { localStorage.removeItem('bitdash_api_url'); } catch {}
 const API = (window.BITDASH_API_URL || 'https://bitdash-api.crlages.workers.dev').replace(/\/$/, '');
+
+const DIAG = new URL(location.href).searchParams.get('diag') === '1' || localStorage.getItem('bitdash_diag') === '1';
+if (new URL(location.href).searchParams.get('diag') === '1') { try { localStorage.setItem('bitdash_diag','1'); } catch {} }
+function parseTokenLocal(){
+  try {
+    const token = String(localStorage.getItem('bitdash_auth_token') || '').trim();
+    if (!token) return { tokenPresent:false };
+    const body = token.split('.')[0] || '';
+    const b64 = body.replace(/-/g,'+').replace(/_/g,'/');
+    const pad = b64.length % 4 ? '='.repeat(4 - (b64.length % 4)) : '';
+    const payload = JSON.parse(atob(b64 + pad));
+    return {
+      tokenPresent:true,
+      email: payload?.email || null,
+      expIso: payload?.exp ? new Date(Number(payload.exp)).toISOString() : null,
+      expired: payload?.exp ? Date.now() > Number(payload.exp) : null,
+      len: token.length,
+    };
+  } catch (e) { return { tokenPresent:true, parseError:String(e.message||e) }; }
+}
+function renderDiag(extra={}){
+  if (!DIAG) return;
+  const el = document.getElementById('diagPanel');
+  if (!el) return;
+  el.classList.add('show');
+  const base = {
+    page: location.pathname,
+    api: API,
+    ts: new Date().toISOString(),
+    localUser: localStorage.getItem('bitdash_local_user') || null,
+    ...parseTokenLocal(),
+    ...extra,
+  };
+  el.textContent = '[BITDASH DIAG]\n' + JSON.stringify(base, null, 2);
+}
 
 function bootstrapSessionFromUrl(){
   try {
@@ -233,7 +272,8 @@ async function api(path, method='GET', body){
   });
   let j={}; try{ j=await r.json(); }catch{}
   if (j?.token) { try { localStorage.setItem('bitdash_auth_token', j.token); } catch {} }
-  if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
+  if(!r.ok || j.ok===false) { renderDiag({ apiPath:path, apiStatus:r.status, apiOk:false, apiError:j.error || `http_${r.status}` }); throw new Error(j.error || `http_${r.status}`); }
+  renderDiag({ apiPath:path, apiStatus:r.status, apiOk:true });
   return j;
 }
 
@@ -664,11 +704,13 @@ window.addEventListener('resize', () => {
 
 (async function init(){
   bootstrapSessionFromUrl();
+  renderDiag({ stage:'dashboard-init-start' });
   portfolio = (await loadPortfolio()).map(x=>{
     const ticker = normalizeTicker(x.ticker);
     return { ...x, ticker, cls: classify(ticker) };
   });
   render();
+  try { const me = await api('/auth/me'); renderDiag({ stage:'dashboard-auth-me', meOk: !!me?.ok, meEmail: me?.user?.email || null }); } catch(e){ renderDiag({ stage:'dashboard-auth-me-fail', err:String(e.message||e) }); }
   // não bloqueia interface: inicia em paralelo
   refresh();
   setTimeout(loadNews, 150);
