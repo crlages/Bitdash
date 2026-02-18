@@ -350,9 +350,19 @@ document.getElementById('analyzeBtn').onclick = async () => {
 document.getElementById('confirmBtn').onclick = async () => {
   const status = document.getElementById('status');
   try {
+    // UX robusto: se não analisou antes, tenta analisar automaticamente no confirmar
+    if (!approvedItems.length) {
+      const raw = document.getElementById('raw').value || '';
+      const parsed = parseRaw(raw);
+      if (parsed.length) {
+        const reviewed = await Promise.all(parsed.map(validateWithUniverse));
+        renderReview(reviewed);
+      }
+    }
+
     if (!approvedItems.length) {
       status.textContent = 'Nenhum ativo aprovado para envio.';
-      alert('Nenhum ativo aprovado. Clique em Analisar antes de confirmar.');
+      alert('Nenhum ativo aprovado. Use exemplo: PETR4 1 e clique em Confirmar.');
       return;
     }
 
@@ -378,6 +388,14 @@ document.getElementById('confirmBtn').onclick = async () => {
 
     const merged = mergeByTicker(base, approvedItems);
     const payload = JSON.stringify(merged);
+    try {
+      localStorage.setItem('bitdash_last_add_result', JSON.stringify({
+        at: new Date().toISOString(),
+        approved: approvedItems.length,
+        merged: merged.length,
+        tickers: approvedItems.map(x => x.ticker)
+      }));
+    } catch {}
 
     try { sessionStorage.setItem('inboundPortfolio', payload); } catch {}
     try { localStorage.setItem('bitdash_inbound_portfolio', payload); } catch {}

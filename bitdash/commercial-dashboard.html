@@ -189,6 +189,7 @@ function renderDiag(extra={}){
     localUser: localStorage.getItem('bitdash_local_user') || null,
     ...parseTokenLocal(),
     authBtnText: (document.getElementById('authBtn')?.textContent || null),
+    lastAdd: (()=>{ try { return JSON.parse(localStorage.getItem('bitdash_last_add_result')||'null'); } catch { return null; } })(),
     ...extra,
   };
   try {
