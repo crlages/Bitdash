@@ -220,16 +220,32 @@ function classifyB3(ticker){
 }
 
 function parseRaw(text){
-  const up = String(text||'').toUpperCase().replace(/[\n\t;]+/g,' ');
-  const re = /\b([A-Z]{2,12}\d{0,3})\b\s+(\d{1,9}(?:[\.,]\d+)?)\b/g;
+  const up = String(text||'').toUpperCase();
+  const norm = up.replace(/[;\n\t]+/g, ' ').replace(/,/g, '.');
   const map = new Map();
+
+  const add = (ticker, qtyRaw) => {
+    const t = normalizeTicker(ticker);
+    const q = Number(String(qtyRaw).replace(',', '.'));
+    if (!t || !Number.isFinite(q) || q <= 0) return;
+    map.set(t, (map.get(t)||0) + q);
+  };
+
+  // formato: TICKER QTD
+  const re1 = /\b([A-Z]{2,12}\d{0,3})\b\s+(\d{1,9}(?:[\.,]\d+)?)\b/g;
   let m;
-  while((m=re.exec(up))!==null){
-    const ticker = normalizeTicker(m[1]);
-    const qty = Number(String(m[2]).replace(',', '.'));
-    if (!Number.isFinite(qty) || qty <= 0) continue;
-    map.set(ticker, (map.get(ticker)||0) + qty);
+  while((m=re1.exec(norm))!==null) add(m[1], m[2]);
+
+  // formato: QTD TICKER
+  const re2 = /\b(\d{1,9}(?:[\.,]\d+)?)\b\s+([A-Z]{2,12}\d{0,3})\b/g;
+  while((m=re2.exec(norm))!==null) add(m[2], m[1]);
+
+  // fallback: só ticker => assume 1 unidade
+  if (map.size === 0) {
+    const onlyTicker = norm.match(/\b([A-Z]{2,12}\d{0,3})\b/);
+    if (onlyTicker) add(onlyTicker[1], 1);
   }
+
   return [...map.entries()].map(([ticker, qty]) => ({ ticker, qty }));
 }
 
