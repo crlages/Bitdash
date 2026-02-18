@@ -336,6 +336,7 @@ document.getElementById('confirmBtn').onclick = async () => {
   try {
     if (!approvedItems.length) {
       status.textContent = 'Nenhum ativo aprovado para envio.';
+      alert('Nenhum ativo aprovado. Clique em Analisar antes de confirmar.');
       return;
     }
 
@@ -376,6 +377,7 @@ document.getElementById('confirmBtn').onclick = async () => {
       status.textContent = 'Ativos adicionados localmente (sem login premium ativo).';
     }
 
+    alert('Ativo(s) enviado(s) com sucesso. Voltando ao dashboard...');
     location.href='commercial-dashboard.html';
   } catch (e) {
     status.textContent = 'Falha ao confirmar ativos: ' + (e.message || e);
