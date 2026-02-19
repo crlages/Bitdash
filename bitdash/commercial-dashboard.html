@@ -146,6 +146,7 @@
       <button id="refreshBtn">Atualizar P/VP automático</button>
       <span id="status" class="muted">Aguardando atualização.</span>
       <span id="mode" class="muted"></span>
+      <span id="addResultBanner" class="add-ok-banner hidden"></span>
     </div>
     <table>
       <thead><tr><th>Ativo</th><th>Classe</th><th>Métrica (P/VP | P/L | Ref.)</th><th>Decisão</th><th>Motivo</th></tr></thead>
@@ -268,6 +269,25 @@ function parseLocalSession(){
     if (payload?.exp && Date.now() > Number(payload.exp)) return null;
     return { email: String(payload.email).toLowerCase(), name: payload.name || null };
   } catch { return null; }
+}
+
+
+function readLastAddResult(){
+  try { return JSON.parse(localStorage.getItem('bitdash_last_add_result') || 'null'); } catch { return null; }
+}
+
+function renderLastAddBanner(){
+  const el = document.getElementById('addResultBanner');
+  if (!el) return;
+  const r = readLastAddResult();
+  if (!r || !Array.isArray(r.tickers) || !r.tickers.length) {
+    el.classList.add('hidden');
+    el.textContent = '';
+    return;
+  }
+  const when = r.at ? new Date(r.at).toLocaleString('pt-BR') : '';
+  el.textContent = `Último add salvo: ${r.tickers.join(', ')} • aprovados: ${r.approved || 0} • ${when}`;
+  el.classList.remove('hidden');
 }
 
 function getLocalPremiumEmail(){
@@ -415,10 +435,12 @@ function render(){
   const invCriptos = document.getElementById('invCriptos'); invCriptos.innerHTML='';
   const dec = document.getElementById('decisionRows'); dec.innerHTML='';
 
+  const lastAddTickers = new Set((readLastAddResult()?.tickers || []).map(x=>String(x||'').toUpperCase()));
   portfolio.forEach(a=>{
     const unit = unitPrice(a);
     const total = estimateValue(a);
     const trInv=document.createElement('tr');
+    if (lastAddTickers.has(String(a.ticker).toUpperCase())) trInv.classList.add('add-hl');
     trInv.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${Number(a.qty).toLocaleString('pt-BR',{maximumFractionDigits:8})}</td><td>${brlOrNd(unit)}</td><td>${brlOrNd(total)}</td>`;
     if (a.cls==='FII') invFiis.appendChild(trInv);
     else if (a.cls==='CRIPTO') invCriptos.appendChild(trInv);
@@ -430,6 +452,7 @@ function render(){
     tr2.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${a.cls}</td><td>${v!=null?(a.cls==='CRIPTO'?`${v.toFixed(2)}% (24h)`:(metricTypes[a.ticker]==='pl'?`${v.toFixed(2)} (P/L)`:(metricTypes[a.ticker]==='ref'?`${v.toFixed(2)} (Ref.)`:v.toFixed(2)))):'-'}</td><td><span class="decision ${cls}">${txt}</span></td><td>${reason(a)}</td>`;
     dec.appendChild(tr2);
   });
+  renderLastAddBanner();
   updateSummary();
 }
 
@@ -730,6 +753,7 @@ async function loadNews(){
 })();
 
 window.addEventListener('resize', () => {
+  renderLastAddBanner();
   updateSummary();
 });
 
