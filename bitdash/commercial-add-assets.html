@@ -96,12 +96,20 @@ document.getElementById('confirmBtn').onclick = async ()=>{
 
     // sempre aplica local primeiro
     localStorage.setItem('bitdash_portfolio_cache', JSON.stringify(merged));
+    localStorage.setItem('bitdash_inbound_portfolio', JSON.stringify(parsed));
 
-    // tenta nuvem sem bloquear fluxo
-    api('/portfolio','POST',{ portfolio: merged }).catch(()=>{});
+    // tenta nuvem (aguarda curto); se falhar, dashboard consolida pelo inbound
+    try {
+      if (localStorage.getItem('bitdash_auth_token')) {
+        await Promise.race([
+          api('/portfolio','POST',{ portfolio: merged }),
+          new Promise((_,rej)=>setTimeout(()=>rej(new Error('sync_timeout')), 1800))
+        ]);
+      }
+    } catch {}
 
     st.textContent = 'Ativos adicionados com sucesso.';
-    setTimeout(()=>location.href='commercial-dashboard.html', 250);
+    setTimeout(()=>location.href='commercial-dashboard.html', 350);
   } catch (e) {
     st.textContent = 'Falha ao adicionar: ' + (e.message || e);
   }
