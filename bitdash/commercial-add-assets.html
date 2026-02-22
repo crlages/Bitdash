@@ -57,7 +57,7 @@ function parseRaw(text){
 function mergeByTicker(base=[], incoming=[]){
   const m = new Map();
   for (const a of base){ const t=normalizeTicker(a.ticker); const q=Number(a.qty||0); if(t&&q>0) m.set(t,{ticker:t,qty:q,cls:classify(t)}); }
-  for (const a of incoming){ const t=normalizeTicker(a.ticker); const q=Number(a.qty||0); if(!t||q<=0) continue; const prev=m.get(t); m.set(t,{ticker:t,qty:(prev?.qty||0)+q,cls:classify(t)}); }
+  for (const a of incoming){ const t=normalizeTicker(a.ticker); const q=Number(a.qty||0); if(!t||q<=0) continue; const prev=m.get(t); m.set(t,{ticker:t,qty:q,cls:classify(t)}); }
   return [...m.values()];
 }
 
