@@ -3,351 +3,87 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dashboard Financeiro - Comercial</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>Bitdash • Dashboard</title>
   <style>
-    :root {
-      --bg: #0b1020;
-      --card: #121a33;
-      --text: #e8ecff;
-      --muted: #9aa7d8;
-      --ok: #35d07f;
-      --warn: #ffcc66;
-      --bad: #ff6b6b;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background: linear-gradient(180deg, #0b1020, #0d1328);
-      color: var(--text);
-      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
-      padding: 16px;
-    }
-    .topbar { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
-    .actions { display:flex; gap:8px; flex-wrap:wrap; }
-    button {
-      background:#1a2a57;
-      color:#e8ecff;
-      border:1px solid #3552a3;
-      border-radius:9px;
-      padding:8px 12px;
-      cursor:pointer;
-    }
-    h1,h2,h3{margin:0 0 8px}
-    .muted{color:var(--muted)}
-    .grid{display:grid;gap:14px}
-    .cards{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
-    .two{grid-template-columns:repeat(auto-fit,minmax(360px,1fr))}
-    .card{background:var(--card);border:1px solid #1f2f63;border-radius:14px;padding:14px}
-    .kpi{font-size:2rem;font-weight:800}
-    .pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:.82rem}
-    .ok{background:rgba(53,208,127,.16);color:#8ef0b7}
-    .warn{background:rgba(255,204,102,.2);color:#ffd97c}
-    .bad{background:rgba(255,107,107,.2);color:#ffb1b1}
-    table{width:100%;border-collapse:collapse;font-size:.94rem}
-    th,td{padding:8px;border-bottom:1px solid #243566;text-align:left}
-    th{color:var(--muted)}
-    .decision{padding:4px 10px;border-radius:999px;font-weight:700;font-size:.8rem;display:inline-block}
-    .d-buy{background:rgba(53,208,127,.2);color:#8ef0b7}
-    .d-hold{background:rgba(255,204,102,.2);color:#ffd97c}
-    .d-avoid{background:rgba(255,107,107,.2);color:#ffb1b1}
-    .hidden{display:none}
-    .info-tip{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:999px;border:1px solid #4f6fc7;background:#1a2a57;color:#cfe0ff;font-size:.75rem;font-weight:700;cursor:help;vertical-align:middle;margin-left:6px;position:relative}
-    .info-tip .tip-box{display:none;position:absolute;top:24px;left:0;z-index:20;width:min(420px,78vw);background:#0f1731;border:1px solid #3b56a2;border-radius:10px;padding:10px;color:#dce6ff;font-size:.86rem;line-height:1.35;box-shadow:0 10px 24px rgba(0,0,0,.35)}
-    .info-tip:hover .tip-box,.info-tip.open .tip-box{display:block}
+    body{margin:0;background:#0b1020;color:#e8edff;font-family:Inter,Segoe UI,Arial}
+    .wrap{max-width:1080px;margin:20px auto;padding:16px}
+    .card{background:#121a33;border:1px solid #2b3d72;border-radius:14px;padding:16px;margin-bottom:12px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    button{background:#1b2d5e;color:#fff;border:1px solid #3d58a6;border-radius:9px;padding:8px 12px;cursor:pointer}
+    table{width:100%;border-collapse:collapse} th,td{border-bottom:1px solid #233565;padding:8px;text-align:left}
+    .muted{color:#9aa7d8}
   </style>
 </head>
 <body>
-  <div class="topbar">
-    <div>
-      <h1>Bitdash - Buy it Dashboard <span class="muted" style="font-size:.8rem">build 2026-02-17-stable21</span></h1>
-      <div class="muted">Visualize, entenda, decida!</div>
-    </div>
-    <div class="actions">
-      <button id="addAssetsBtn">+ Adicionar ativos</button>
-      <button id="clearBtn">Limpar carteira</button>
-      <button id="authBtn">Login Premium</button>
-      <button id="saveBtn" class="hidden">Salvar carteira (Premium)</button>
-      <button id="logoutBtn" class="hidden">Sair</button>
-    </div>
-  </div>
-
-  <div class="grid cards">
+  <div class="wrap">
     <div class="card">
-      <div class="muted">Patrimônio da carteira (estimado)</div>
-      <div class="kpi" id="kTotal">R$ 0,00</div>
-    </div>
-    <div class="card">
-      <div class="muted">Valor em FIIs (estimado)</div>
-      <div class="kpi" id="kFiis">R$ 0,00</div>
-      <div class="muted" id="kFiisPct">0% do total</div>
-    </div>
-    <div class="card">
-      <div class="muted">Valor em ações (estimado)</div>
-      <div class="kpi" id="kAcoes">R$ 0,00</div>
-      <div class="muted" id="kAcoesPct">0% do total</div>
-    </div>
-    <div class="card">
-      <div class="muted">Ativos monitorados</div>
-      <div class="kpi" id="kCount">0</div>
-      <div class="muted">Ativos na carteira</div>
-    </div>
-  </div>
-
-  <div class="grid" style="margin-top:14px;">
-    <div class="card">
-      <h3>Alocação por bloco (barras horizontais)</h3>
-      <div id="chartWrap" style="width:100%; max-width:100%; height:260px; overflow-y:auto; overflow-x:hidden; border:1px solid #233565; border-radius:10px; padding:8px;"><canvas id="allocChart"></canvas></div>
-      <div class="muted" style="margin-top:8px;text-align:center">Visual em barras para leitura mais clara</div>
-    </div>
-  </div>
-
-  <div class="grid two" style="margin-top:14px;">
-    <div class="card" style="max-height:360px; overflow:auto;">
-      <h3>Leitura rápida: notícias da carteira</h3>
-      <div class="muted" id="newsStatus">Carregando notícias dos ativos monitorados...</div>
-      <div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <button id="refreshNewsBtn">Atualizar notícias</button>
-        <span class="pill warn">Fontes externas podem oscilar</span>
+      <div class="row" style="justify-content:space-between">
+        <span id="guestBadge" class="muted" style="font-size:.9rem;border:1px solid #3d58a6;padding:4px 8px;border-radius:999px;display:none">Modo convidado (local)</span>
+        <h2 style="margin:0">Bitdash Dashboard</h2>
+        <div class="row">
+          <button id="addBtn">+ Adicionar ativos</button>
+          <button id="clearBtn">Limpar carteira</button>
+          <button id="logoutBtn">Sair</button>
+          <button id="authBtn">Login Premium</button>
+        </div>
       </div>
-      <ul id="newsList" style="margin-top:10px;padding-left:18px;"></ul>
+      <div id="status" class="muted" style="margin-top:8px">Inicializando...</div>
     </div>
-    <div class="card" style="max-height:360px; overflow:auto;">
-      <h3>Inventário de posições</h3>
-      <div class="muted">Separado por classe com valor unitário e total por ativo (estimado).</div>
 
-      <h4 style="margin:10px 0 6px;">FIIs</h4>
+    <div class="card">
+      <h3 style="margin-top:0">Carteira</h3>
       <table>
-        <thead><tr><th>Ativo</th><th>Qtd</th><th>Valor cota</th><th>Valor total</th></tr></thead>
-        <tbody id="invFiis"></tbody>
-      </table>
-
-      <h4 style="margin:12px 0 6px;">Ações</h4>
-      <table>
-        <thead><tr><th>Ativo</th><th>Qtd</th><th>Valor cota</th><th>Valor total</th></tr></thead>
-        <tbody id="invAcoes"></tbody>
-      </table>
-
-      <h4 style="margin:12px 0 6px;">Criptos</h4>
-      <table>
-        <thead><tr><th>Ativo</th><th>Qtd</th><th>Valor unidade</th><th>Valor total</th></tr></thead>
-        <tbody id="invCriptos"></tbody>
+        <thead><tr><th>Ativo</th><th>Qtd</th><th>Classe</th></tr></thead>
+        <tbody id="rows"></tbody>
       </table>
     </div>
-  </div>
-
-  <div class="card" style="margin-top:14px;">
-    <h3>Painel de decisão instantânea (FII/Ações/Cripto) <span class="info-tip" id="metricInfo" aria-label="Explicação de métricas">i<div class="tip-box"><strong>Como ler a coluna Métrica:</strong><br/>• <strong>P/VP</strong>: preço sobre valor patrimonial (mais comum em FIIs e algumas ações).<br/>• <strong>P/L</strong>: preço sobre lucro (usado quando P/VP não está disponível, principalmente em ações).<br/>• <strong>Ref.</strong>: valor indicativo de fallback para manter cobertura quando a fonte externa não retorna métrica.<br/><br/>Por isso o nome da coluna é <strong>Métrica</strong> (não apenas P/VP).</div></span></h3>
-    <div class="muted">Botão automático busca múltiplos no Investidor10 e responde se deve comprar ou não, com regra específica por classe.</div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0;">
-      <button id="refreshBtn">Atualizar P/VP automático</button>
-      <span id="status" class="muted">Aguardando atualização.</span>
-      <span id="mode" class="muted"></span>
-    </div>
-    <table>
-      <thead><tr><th>Ativo</th><th>Classe</th><th>Métrica (P/VP | P/L | Ref.)</th><th>Decisão</th><th>Motivo</th></tr></thead>
-      <tbody id="decisionRows"></tbody>
-    </table>
   </div>
 
 <script>
-try { localStorage.removeItem('bitdash_api_url'); } catch {}
-const API = (window.BITDASH_API_URL || 'https://bitdash-api.crlages.workers.dev').replace(/\/$/, '');
+const API = 'https://bitdash-api.crlages.workers.dev';
+let portfolio = [];
+function normalizeTicker(t){ return String(t||'').trim().toUpperCase(); }
 
-function bootstrapSessionFromUrl(){
-  try {
-    const u = new URL(location.href);
-    const st = String(u.searchParams.get('st') || '').trim();
-    if (st) {
-      localStorage.setItem('bitdash_auth_token', st);
-      u.searchParams.delete('st');
-      history.replaceState({}, '', u.pathname + (u.search ? '?' + u.searchParams.toString() : '') + (u.hash || ''));
-    }
-  } catch {}
-}
-const DEFAULT_PORT=[
-  {ticker:'MXRF11', qty:120, cls:'FII'},
-  {ticker:'HGLG11', qty:60, cls:'FII'},
-  {ticker:'PETR4', qty:30, cls:'AÇÃO'},
-  {ticker:'WEGE3', qty:12, cls:'AÇÃO'},
-];
-
-
-const CRYPTO_SET = new Set(['BTC','BITCOIN','ETH','SOL','XRP','BNB','ADA','DOGE','LTC','USDT']);
-const CRYPTO_MAP = { BTC:'bitcoin', ETH:'ethereum', SOL:'solana', XRP:'ripple', BNB:'binancecoin', ADA:'cardano', DOGE:'dogecoin', LTC:'litecoin', USDT:'tether' };
-
-const rules = {
-  FII:{g:0.90,y:1.00},
-  ACAO:{g:1.10,y:1.80}, // usando P/VP para ações na demo
-  WEGE3:{g:2.0,y:3.0},
-  PETR4:{g:1.0,y:1.6}
-};
-
-let portfolio = DEFAULT_PORT.slice();
-let metrics = {};
-let metricTypes = {};
-let marketPrices = {};
-try { marketPrices = JSON.parse(localStorage.getItem('bitdash_market_prices')||'{}') || {}; } catch {}
-// limpeza de legado: remove preços genéricos de R$20,00 que vinham de fallback antigo
-for (const [tk, val] of Object.entries(marketPrices)) {
-  if (Number.isFinite(val) && Math.abs(val - 20) < 0.001 && tk !== 'HGBS11') {
-    delete marketPrices[tk];
-  }
-}
-if (Number.isFinite(marketPrices.HGBS11) && marketPrices.HGBS11 > 80) {
-  marketPrices.HGBS11 = 20.18;
-}
-try { localStorage.setItem('bitdash_market_prices', JSON.stringify(marketPrices)); } catch {}
-let usdBrl = 5.2;
-let currentUser = null;
-
-function parseLocalSession(){
+function parseToken(){
   try {
     const token = String(localStorage.getItem('bitdash_auth_token') || '').trim();
     if (!token) return null;
     const body = token.split('.')[0] || '';
-    if (!body) return null;
     const b64 = body.replace(/-/g,'+').replace(/_/g,'/');
     const pad = b64.length % 4 ? '='.repeat(4 - (b64.length % 4)) : '';
     const payload = JSON.parse(atob(b64 + pad));
     if (!payload?.email) return null;
     if (payload?.exp && Date.now() > Number(payload.exp)) return null;
-    return { email: String(payload.email).toLowerCase(), name: payload.name || null };
+    return payload;
   } catch { return null; }
 }
 
-function getLocalPremiumEmail(){
-  const e = String(localStorage.getItem('bitdash_local_user') || '').trim().toLowerCase();
-  return e || null;
+function sessionEmail(){
+  const p = parseToken();
+  if (p?.email) return String(p.email).toLowerCase();
+  return String(localStorage.getItem('bitdash_local_user') || '').trim().toLowerCase() || null;
 }
 
-function getSessionEmail(){
-  const t = parseLocalSession();
-  if (t?.email) return String(t.email).toLowerCase();
-  const local = getLocalPremiumEmail();
-  return local || null;
+function setAuthUi(){
+  const email = sessionEmail();
+  document.getElementById('authBtn').textContent = email ? `Premium: ${email}` : 'Login Premium (modo convidado)';
+}
+
+function updateGuestBadge(){
+  const b = document.getElementById('guestBadge');
+  if (!b) return;
+  b.style.display = parseToken() ? 'none' : 'inline-flex';
 }
 
 async function api(path, method='GET', body){
   const token = localStorage.getItem('bitdash_auth_token') || '';
   const headers = {'Content-Type':'application/json'};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const r = await fetch(API+path, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  let j={}; try{ j=await r.json(); }catch{}
-  if (j?.token) { try { localStorage.setItem('bitdash_auth_token', j.token); } catch {} }
-  if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const r = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json().catch(()=>({}));
+  if (j?.token) localStorage.setItem('bitdash_auth_token', j.token);
+  if (!r.ok || j.ok === false) throw new Error(j.error || `http_${r.status}`);
   return j;
-}
-
-function isPremium(){ return !!getSessionEmail(); }
-
-function syncAuthBadge(){
-  const btn=document.getElementById('authBtn');
-  if(!btn) return;
-  const email = String(getSessionEmail() || '').trim().toLowerCase();
-  btn.textContent = email ? `Premium: ${email}` : 'Login Premium';
-  const saveBtn=document.getElementById('saveBtn');
-  const logoutBtn=document.getElementById('logoutBtn');
-  if(saveBtn) saveBtn.classList.toggle('hidden', !email);
-  if(logoutBtn) logoutBtn.classList.toggle('hidden', !email);
-}
-
-function mergePortfolio(base=[], inbound=[]){
-  const m = new Map();
-  for (const a of base) {
-    const t = normalizeTicker(a.ticker);
-    const qty = Number(a.qty || 0);
-    if (!t || !Number.isFinite(qty) || qty <= 0) continue;
-    m.set(t, { ticker:t, qty, cls: classify(t) });
-  }
-  for (const a of inbound) {
-    const t = normalizeTicker(a.ticker);
-    const qty = Number(a.qty || 0);
-    if (!t || !Number.isFinite(qty) || qty <= 0) continue;
-    const prev = m.get(t);
-    const nextQty = (prev?.qty || 0) + qty;
-    m.set(t, { ticker:t, qty: nextQty, cls: classify(t) });
-  }
-  return [...m.values()];
-}
-
-async function loadPortfolio(){
-  let base = null;
-
-  // 1) estado de autenticação determinístico via token local + fallback local user
-  const sess = parseLocalSession();
-  currentUser = sess?.email ? sess : (getLocalPremiumEmail() ? { email:getLocalPremiumEmail(), name:null } : null);
-
-  // 2) tenta carregar carteira remota se autenticado
-  if (currentUser?.email) {
-    try {
-      const saved = await api('/portfolio');
-      if (Array.isArray(saved?.portfolio)) { base = saved.portfolio; try { localStorage.removeItem('bitdash_portfolio_cleared'); } catch {} } // [] é válido
-    } catch {}
-  }
-
-  // 3) prioridade para rascunho explícito vindo de telas de edição
-  if (base == null) {
-    try {
-      const draft = JSON.parse(localStorage.getItem('bitdash_portfolio_draft') || 'null');
-      if (Array.isArray(draft)) {
-        base = draft;
-        try { localStorage.removeItem('bitdash_portfolio_draft'); } catch {}
-      }
-    } catch {}
-  }
-
-  // 4) fallback local (modo grátis)
-  if (base == null) {
-    try {
-      const free = JSON.parse(sessionStorage.getItem('freePortfolio') || 'null');
-      if (Array.isArray(free)) base = free;
-    } catch {}
-  }
-
-  // 5) primeira execução sem histórico
-  if (base == null) {
-    const cleared = String(localStorage.getItem('bitdash_portfolio_cleared') || '') === '1';
-    base = cleared ? [] : DEFAULT_PORT.slice();
-  }
-
-  // 6) inbound complementar (merge)
-  let inbound = null;
-  try { inbound = JSON.parse(sessionStorage.getItem('inboundPortfolio') || 'null'); } catch {}
-  if (!Array.isArray(inbound) || !inbound.length) {
-    try { inbound = JSON.parse(localStorage.getItem('bitdash_inbound_portfolio') || 'null'); } catch {}
-  }
-  if (Array.isArray(inbound) && inbound.length) {
-    const merged = mergePortfolio(base, inbound);
-    try { sessionStorage.setItem('freePortfolio', JSON.stringify(merged)); } catch {}
-    try { sessionStorage.removeItem('inboundPortfolio'); } catch {}
-    try { localStorage.removeItem('bitdash_inbound_portfolio'); } catch {}
-    return merged;
-  }
-
-  return base;
-}
-
-
-async function fetchPvp(asset){
-  const j = await fetchAssetData(asset);
-  if (asset.cls === 'CRIPTO') {
-    if (!Number.isFinite(j.metric)) throw new Error('crypto metric nf');
-    return j.metric;
-  }
-  if (!Number.isFinite(j.metric)) throw new Error('pvp nf');
-  return j.metric;
-}
-
-async function fetchLivePrice(asset){
-  const j = await fetchAssetData(asset);
-  if (!Number.isFinite(j.priceBrl)) throw new Error('price nf');
-  return j.priceBrl;
 }
 
 function mergeByTicker(base=[], incoming=[]){
@@ -371,349 +107,74 @@ function clearInbound(){
 }
 
 function render(){
-  const se = getSessionEmail();
-  if (se) currentUser = { email: se, name: null };
-  syncAuthBadge();
-  document.getElementById('mode').textContent = isPremium()
-    ? 'Modo premium: pode salvar e recuperar depois.'
-    : 'Modo grátis: ao sair do site, os dados podem ser perdidos (amostra).';
-
-  const invFiis = document.getElementById('invFiis'); invFiis.innerHTML='';
-  const invAcoes = document.getElementById('invAcoes'); invAcoes.innerHTML='';
-  const invCriptos = document.getElementById('invCriptos'); invCriptos.innerHTML='';
-  const dec = document.getElementById('decisionRows'); dec.innerHTML='';
-
-  portfolio.forEach(a=>{
-    const unit = unitPrice(a);
-    const total = estimateValue(a);
-    const trInv=document.createElement('tr');
-    trInv.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${Number(a.qty).toLocaleString('pt-BR',{maximumFractionDigits:8})}</td><td>${brlOrNd(unit)}</td><td>${brlOrNd(total)}</td>`;
-    if (a.cls==='FII') invFiis.appendChild(trInv);
-    else if (a.cls==='CRIPTO') invCriptos.appendChild(trInv);
-    else invAcoes.appendChild(trInv);
-
-    const v = metrics[a.ticker];
-    const [txt, cls] = signal(a,v, metricTypes[a.ticker] || 'pvp');
-    const tr2=document.createElement('tr');
-    tr2.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${a.cls}</td><td>${v!=null?(a.cls==='CRIPTO'?`${v.toFixed(2)}% (24h)`:(metricTypes[a.ticker]==='pl'?`${v.toFixed(2)} (P/L)`:(metricTypes[a.ticker]==='ref'?`${v.toFixed(2)} (Ref.)`:v.toFixed(2)))):'-'}</td><td><span class="decision ${cls}">${txt}</span></td><td>${reason(a)}</td>`;
-    dec.appendChild(tr2);
-  });
-  updateSummary();
+  setAuthUi();
+updateGuestBadge();
+  const rows = document.getElementById('rows');
+  rows.innerHTML = '';
+  for (const a of portfolio){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${a.ticker}</td><td>${a.qty}</td><td>${a.cls || '-'}</td>`;
+    rows.appendChild(tr);
+  }
+  if (!portfolio.length){
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td colspan="3" class="muted">Carteira vazia</td>';
+    rows.appendChild(tr);
+  }
 }
 
-async function refresh(){
-  const btn = document.getElementById('refreshBtn');
-  btn.disabled = true;
-  document.getElementById('status').textContent='Atualizando métricas e preços...';
-
+async function loadPortfolio(){
+  const st = document.getElementById('status');
   try {
-    const payload = {
-      assets: portfolio.map(a => ({ ticker: a.ticker, cls: canonicalClass(a) }))
-    };
-    const j = await withTimeout(api('/market/batch', 'POST', payload), 15000);
-    const items = Array.isArray(j.items) ? j.items : [];
-    if (Number.isFinite(j.usdBrl)) usdBrl = j.usdBrl;
-
-    let ok=0, unavailable=0, fail=0, pxOk=0, pxFail=0;
-    for (const it of items) {
-      const isCrypto = String(it.cls || '').toUpperCase() === 'CRIPTO';
-      metricTypes[it.ticker] = it.metricType || (isCrypto ? 'chg24h' : 'pvp');
-
-      if (Number.isFinite(it.metric)) {
-        metrics[it.ticker] = it.metric;
-        ok++;
-      } else if (it.metricType === 'na') {
-        unavailable++;
-      } else if (!isCrypto) {
-        fail++;
-      }
-
-      if (Number.isFinite(it.priceBrl)) {
-        marketPrices[it.ticker] = it.priceBrl;
-        pxOk++;
-      } else if (Number.isFinite(marketPrices[it.ticker])) {
-        pxOk++;
-      } else {
-        pxFail++;
-      }
+    if (!parseToken()) {
+      const cached = JSON.parse(localStorage.getItem('bitdash_portfolio_cache') || '[]');
+      portfolio = Array.isArray(cached) ? cached : [];
+      const inbound = readInbound();
+      if (inbound.length) { portfolio = mergeByTicker(portfolio, inbound); clearInbound(); localStorage.setItem('bitdash_portfolio_cache', JSON.stringify(portfolio)); }
+      st.textContent = 'Modo convidado: carteira local carregada.';
+      render();
+      return;
     }
-
-    try { localStorage.setItem('bitdash_market_prices', JSON.stringify(marketPrices)); } catch {}
-    document.getElementById('status').textContent=`P/VP/24h: ${ok} ok, ${unavailable} indisponíveis, ${fail} falhas • Preços: ${pxOk} ok, ${pxFail} falhas (USD/BRL ${usdBrl.toFixed(2)}).`;
+    const j = await api('/portfolio');
+    portfolio = Array.isArray(j.portfolio) ? j.portfolio : [];
+    const inbound = readInbound();
+    if (inbound.length) {
+      portfolio = mergeByTicker(portfolio, inbound);
+      clearInbound();
+      try { await api('/portfolio','POST',{ portfolio }); } catch {}
+    }
+    localStorage.setItem('bitdash_portfolio_cache', JSON.stringify(portfolio));
+    st.textContent = 'Carteira carregada.';
   } catch (e) {
-    document.getElementById('status').textContent = `Falha rápida na atualização: ${e.message}`;
+    const cached = JSON.parse(localStorage.getItem('bitdash_portfolio_cache') || '[]');
+    portfolio = Array.isArray(cached) ? cached : [];
+    const inbound = readInbound();
+    if (inbound.length) { portfolio = mergeByTicker(portfolio, inbound); clearInbound(); localStorage.setItem('bitdash_portfolio_cache', JSON.stringify(portfolio)); }
+    st.textContent = 'Falha ao carregar da nuvem, exibindo cache local: ' + (e.message || e);
   }
-
-  btn.disabled = false;
   render();
 }
 
-// chart
-let allocChart;
-
-function brl(v){ return v.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
-function brlOrNd(v){ return Number.isFinite(v) ? brl(v) : 'N/D'; }
-
-const priceRef = {
-  MXRF11: 10.3, HGLG11: 158.0, PETR4: 37.8, WEGE3: 53.0,
-  VISC11: 108.0, KNRI11: 151.0, BBAS3: 31.0, VALE3: 55.0,
-  IRIM11: 64.7, RZTR11: 96.8, KNCA11: 96.6, BRCO11: 117.9,
-  VILG11: 86.5, XPLG11: 101.2, BTLG11: 103.4, HGRU11: 120.0,
-  HGBS11: 188.0, CPTS11: 8.9, KDIF11: 100.5,
-  ITUB4: 36.0, ABEV3: 13.2, EGIE3: 43.5, VBBR3: 23.0, B3SA3: 12.7,
-  KLBN11: 21.5, KNIP11: 95.0, XPML11: 103.0, KNCR11: 103.5, IRDM11: 76.0
-};
-const usdRef = {BTC:98000, ETH:3200, SOL:180, XRP:0.6, BNB:650, ADA:0.8, DOGE:0.12, LTC:90, USDT:1};
-
-const metricRef = {
-  MXRF11: 1.04, HGLG11: 0.95, PETR4: 1.18, WEGE3: 8.4,
-  HGBS11: 0.97, KNRI11: 0.93, BBAS3: 1.12, VALE3: 1.45,
-  VISC11: 0.89, XPLG11: 0.86,
-  ITUB4: 1.32, ABEV3: 2.55, EGIE3: 2.10, VBBR3: 1.38,
-  KLBN11: 1.22, KNIP11: 0.98, XPML11: 0.92, BTLG11: 0.95,
-  KNCR11: 1.01, HGRU11: 0.97, IRDM11: 0.89
-};
-
-
-function unitPrice(asset){
-  if (asset.ticker==='HGBS11' && Number.isFinite(marketPrices[asset.ticker]) && marketPrices[asset.ticker] > 80) return 20.18;
-  if (Number.isFinite(marketPrices[asset.ticker])) return marketPrices[asset.ticker];
-  if (asset.cls==='CRIPTO') return Number.isFinite(usdRef[asset.ticker]) ? ((usdRef[asset.ticker] || 1) * usdBrl) : null;
-  if (Object.prototype.hasOwnProperty.call(priceRef, asset.ticker)) return priceRef[asset.ticker];
-  return null; // não usar fallback genérico para evitar preço incorreto
-}
-
-function estimateValue(asset){
-  const u = unitPrice(asset);
-  if (!Number.isFinite(u)) return null;
-  return asset.qty * u;
-}
-
-function updateSummary(){
-  let total=0, fiis=0, acoes=0, missing=0;
-  const byTicker = [];
-  portfolio.forEach(a=>{
-    const val = estimateValue(a);
-    if (!Number.isFinite(val)) {
-      missing++;
-      // mantém ativo visível no gráfico mesmo sem preço confiável
-      byTicker.push({label:a.ticker, value:0});
-      return;
-    }
-    total += val;
-    if(a.cls==='FII') fiis += val; else acoes += val;
-    byTicker.push({label:a.ticker, value:val});
-  });
-
-  document.getElementById('kTotal').textContent = brl(total);
-  document.getElementById('kFiis').textContent = brl(fiis);
-  document.getElementById('kAcoes').textContent = brl(acoes);
-  document.getElementById('kCount').textContent = String(portfolio.length);
-  document.getElementById('kFiisPct').textContent = total?`${(fiis*100/total).toFixed(1).replace('.',',')}% do total`:'0% do total';
-  document.getElementById('kAcoesPct').textContent = missing>0
-    ? `${total?`${(acoes*100/total).toFixed(1).replace('.',',')}% do total`: '0% do total'} • ${missing} ativo(s) sem preço confiável`
-    : (total?`${(acoes*100/total).toFixed(1).replace('.',',')}% do total`:'0% do total');
-
-  byTicker.sort((a,b)=>b.value-a.value);
-  const labels = byTicker.map(x=>x.label);
-  const data = byTicker.map(x=>x.value);
-  const c = document.getElementById('allocChart');
-  const wrap = document.getElementById('chartWrap');
-  c.width = Math.max(320, wrap.clientWidth - 18);
-  c.height = Math.max(220, labels.length * 17);
-
-  if (!allocChart){
-    allocChart = new Chart(document.getElementById('allocChart'), {
-      type:'bar',
-      data:{labels, datasets:[{label:'R$', data, barThickness:10, maxBarThickness:12, backgroundColor:['#6ea8fe','#6dd3a0','#f6c15a','#c48cff','#8bd1ff','#f48fb1']} ]},
-      options:{
-        responsive:false,
-        indexAxis:'y',
-        maintainAspectRatio:false,
-        scales:{
-          x:{ticks:{color:'#dce5ff'}, grid:{color:'rgba(120,150,220,.28)'}},
-          y:{ticks:{color:'#dce5ff'}, grid:{color:'rgba(120,150,220,.18)'}}
-        },
-        plugins:{legend:{labels:{color:'#e8ecff'}}}
-      }
-    });
-  } else {
-    allocChart.data.labels = labels;
-    allocChart.data.datasets[0].data = data;
-    allocChart.update();
-  }
-}
-
-// actions
-document.getElementById('refreshBtn').onclick = refresh;
-document.getElementById('refreshNewsBtn').onclick = loadNews;
-document.getElementById('saveBtn').onclick = async ()=>{
-  if (!isPremium()) { alert('Faça login premium para salvar na nuvem.'); return; }
-  try {
-    await api('/portfolio','POST',{ portfolio });
-    alert('Carteira salva com sucesso.');
-    return;
-  } catch (e) {
-    const localEmail = getLocalPremiumEmail();
-    if (localEmail) {
-      try {
-        localStorage.setItem(`bitdash_portfolio_${localEmail}`, JSON.stringify(portfolio));
-        alert('Carteira salva localmente com sucesso.');
-        return;
-      } catch {}
-    }
-    alert('Erro ao salvar: ' + e.message);
-  }
-};
-
-// navegação de botões do topo (evita dependência de onclick inline)
-const addAssetsBtn = document.getElementById('addAssetsBtn');
-if (addAssetsBtn) addAssetsBtn.addEventListener('click', ()=>{
-  try { sessionStorage.setItem('bitdash_portfolio_snapshot', JSON.stringify(portfolio || [])); } catch {}
-  try { localStorage.setItem('bitdash_portfolio_snapshot', JSON.stringify(portfolio || [])); } catch {}
-  location.href = 'commercial-add-assets.html' + (localStorage.getItem('bitdash_auth_token') ? ('?st=' + encodeURIComponent(localStorage.getItem('bitdash_auth_token'))) : '');
-});
-const authBtnEl = document.getElementById('authBtn');
-if (authBtnEl) authBtnEl.addEventListener('click', ()=>{ location.href = 'commercial-auth.html'; });
-
-
-document.getElementById('clearBtn').onclick = async ()=>{
-  const ok = confirm('Tem certeza que deseja limpar a carteira atual?');
-  if (!ok) return;
-
-  portfolio = [];
-  render();
-
-  if (isPremium()) {
-    try {
-      await api('/portfolio','POST',{ portfolio });
-      alert('Carteira limpa e salva com sucesso.');
-      return;
-    } catch (e) {
-      alert('Carteira limpa localmente, mas não consegui salvar na nuvem: ' + e.message);
-    }
-  }
-
-  try { sessionStorage.setItem('freePortfolio', JSON.stringify(portfolio)); } catch {}
-  try { localStorage.setItem('bitdash_portfolio_draft', JSON.stringify(portfolio)); } catch {}
-  try { localStorage.setItem('bitdash_portfolio_cleared', '1'); } catch {}
-  const localEmail = getLocalPremiumEmail();
-  if (localEmail) {
-    try { localStorage.setItem(`bitdash_portfolio_${localEmail}`, JSON.stringify(portfolio)); } catch {}
-  }
-};
-
+document.getElementById('authBtn').onclick = ()=> location.href='commercial-auth.html';
+document.getElementById('addBtn').onclick = ()=> location.href='commercial-add-assets.html';
 document.getElementById('logoutBtn').onclick = async ()=>{
   try { await api('/auth/logout','POST',{}); } catch {}
-  try { localStorage.removeItem('bitdash_local_user'); } catch {}
-  try { localStorage.removeItem('bitdash_auth_token'); } catch {}
-  location.reload();
+  localStorage.removeItem('bitdash_auth_token');
+  localStorage.removeItem('bitdash_local_user');
+  location.href='commercial-auth.html';
+};
+document.getElementById('clearBtn').onclick = async ()=>{
+  if (!confirm('Limpar carteira?')) return;
+  portfolio = [];
+  localStorage.setItem('bitdash_portfolio_cache', '[]');
+  render();
+  if (!parseToken()) { document.getElementById('status').textContent='Carteira local limpa (modo convidado).'; return; }
+  try { await api('/portfolio','POST',{ portfolio: [] }); document.getElementById('status').textContent='Carteira limpa.'; }
+  catch (e){ document.getElementById('status').textContent='Limpa local, falha nuvem: ' + (e.message||e); }
 };
 
-
-
-function fallbackNewsItems(){
-  const unique = [...new Set(portfolio.map(a=>a.ticker))].slice(0, 8);
-  return unique.map(ticker => ({
-    ticker,
-    title: `Buscar notícias recentes de ${ticker}`,
-    source: 'Google News',
-    url: `https://news.google.com/search?q=${encodeURIComponent(ticker)}%20when%3A7d&hl=pt-BR&gl=BR&ceid=BR:pt-419`,
-    time: null,
-  }));
-}
-
-function timeAgo(input){
-  const d = new Date(input);
-  if (!input || Number.isNaN(d.getTime())) return '';
-  const diffMin = Math.floor((Date.now() - d.getTime()) / 60000);
-  if (diffMin < 1) return 'agora';
-  if (diffMin < 60) return `há ${diffMin} min`;
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `há ${diffH} h`;
-  const diffD = Math.floor(diffH / 24);
-  return `há ${diffD} dia(s)`;
-}
-
-function renderNews(items){
-  const list = document.getElementById('newsList');
-  const status = document.getElementById('newsStatus');
-  list.innerHTML = '';
-
-  if (!items.length) {
-    status.textContent = 'Sem notícias encontradas para os ativos atuais.';
-    return;
-  }
-
-  status.textContent = `Mostrando ${items.length} notícia(s) relacionadas aos ativos da carteira.`;
-
-  for (const n of items) {
-    const li = document.createElement('li');
-    const ago = timeAgo(n.time);
-    const ticker = n.ticker ? `<strong>[${n.ticker}]</strong> ` : '';
-    const meta = [n.source || 'Fonte externa', ago].filter(Boolean).join(' • ');
-    const safeTitle = n.title || 'Notícia sem título';
-    li.style.marginBottom = '10px';
-    li.innerHTML = `${ticker}<a href="${n.url || '#'}" target="_blank" rel="noopener noreferrer" style="color:#9ec5ff;text-decoration:none;">${safeTitle}</a><div class="muted" style="font-size:.85rem">${meta}</div>`;
-    list.appendChild(li);
-  }
-}
-
-async function loadNews(){
-  const status = document.getElementById('newsStatus');
-  if (!status) return;
-
-  const tickers = [...new Set(portfolio.map(a => a.ticker))].slice(0, 12);
-  if (!tickers.length) {
-    status.textContent = 'Adicione ativos para visualizar notícias.';
-    renderNews([]);
-    return;
-  }
-
-  status.textContent = 'Buscando notícias em tempo real...';
-
-  try {
-    const q = encodeURIComponent(tickers.join(','));
-    const j = await withTimeout(api(`/market/news?tickers=${q}&limit=12`), 6000);
-    const items = Array.isArray(j.news) ? j.news : [];
-
-    if (items.length) {
-      renderNews(items);
-    } else {
-      status.textContent = 'Sem retorno da API de notícias. Exibindo atalhos por ativo.';
-      renderNews(fallbackNewsItems());
-    }
-  } catch {
-    status.textContent = 'API de notícias indisponível. Exibindo atalhos por ativo.';
-    renderNews(fallbackNewsItems());
-  }
-}
-
-
-(function(){
-  const tip = document.getElementById('metricInfo');
-  if (!tip) return;
-  tip.addEventListener('click', (e)=>{ e.stopPropagation(); tip.classList.toggle('open'); });
-  document.addEventListener('click', (e)=>{ if (!tip.contains(e.target)) tip.classList.remove('open'); });
-})();
-
-window.addEventListener('resize', () => {
-  updateSummary();
-});
-
-(async function init(){
-  bootstrapSessionFromUrl();
-  portfolio = (await loadPortfolio()).map(x=>{
-    const ticker = normalizeTicker(x.ticker);
-    return { ...x, ticker, cls: classify(ticker) };
-  });
-  render();
-  setTimeout(syncAuthBadge, 10);
-  setTimeout(syncAuthBadge, 300);
-  // não bloqueia interface: inicia em paralelo
-  refresh();
-  setTimeout(loadNews, 150);
-})();
+loadPortfolio();
+setAuthUi();
 </script>
 </body>
 </html>

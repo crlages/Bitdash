@@ -42,6 +42,7 @@
 <script>
 const API = 'https://bitdash-api.crlages.workers.dev';
 let portfolio = [];
+function normalizeTicker(t){ return String(t||'').trim().toUpperCase(); }
 
 function parseToken(){
   try {
@@ -65,7 +66,13 @@ function sessionEmail(){
 
 function setAuthUi(){
   const email = sessionEmail();
-document.getElementById('authBtn').textContent = email ? `Premium: ${email}` : 'Login Premium (modo convidado)';
+  document.getElementById('authBtn').textContent = email ? `Premium: ${email}` : 'Login Premium (modo convidado)';
+}
+
+function updateGuestBadge(){
+  const b = document.getElementById('guestBadge');
+  if (!b) return;
+  b.style.display = parseToken() ? 'none' : 'inline-flex';
 }
 
 async function api(path, method='GET', body){
