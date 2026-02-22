@@ -18,6 +18,7 @@
   <div class="wrap">
     <div class="card">
       <div class="row" style="justify-content:space-between">
+        <span id="guestBadge" class="muted" style="font-size:.9rem;border:1px solid #3d58a6;padding:4px 8px;border-radius:999px;display:none">Modo convidado (local)</span>
         <h2 style="margin:0">Bitdash Dashboard</h2>
         <div class="row">
           <button id="addBtn">+ Adicionar ativos</button>
@@ -80,6 +81,7 @@ async function api(path, method='GET', body){
 
 function render(){
   setAuthUi();
+updateGuestBadge();
   const rows = document.getElementById('rows');
   rows.innerHTML = '';
   for (const a of portfolio){
