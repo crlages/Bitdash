@@ -17,10 +17,7 @@
     .sep::before,.sep::after{content:'';flex:1;height:1px;background:#2d3f74}
     #googleWrap{display:flex;justify-content:center;min-height:42px}
     button,a.btn{background:var(--btn);color:#fff;border:1px solid var(--btnLine);border-radius:9px;padding:9px 12px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
-  
-    #diagPanel{position:fixed;right:12px;bottom:12px;width:min(520px,92vw);max-height:46vh;overflow:auto;padding:10px;border:1px dashed #3d58a6;border-radius:10px;background:#0a132e;color:#bcd0ff;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;display:none;z-index:99999;box-shadow:0 8px 30px rgba(0,0,0,.45)}
-    #diagPanel.show{display:block}
-    </style>
+  </style>
 </head>
 <body>
   <div class="card">
@@ -35,46 +32,10 @@
     <div id="googleWrap"></div>
 
     <div id="status" class="muted" style="margin-top:10px;"></div>
-  <pre id="diagPanel"></pre>
   </div>
 
 <script>
 const API = (window.BITDASH_API_URL || 'https://bitdash-api.crlages.workers.dev').replace(/\/$/, '');
-
-const DIAG = new URL(location.href).searchParams.get('diag') === '1' || localStorage.getItem('bitdash_diag') === '1';
-if (new URL(location.href).searchParams.get('diag') === '1') { try { localStorage.setItem('bitdash_diag','1'); } catch {} }
-function parseTokenLocal(){
-  try {
-    const token = String(localStorage.getItem('bitdash_auth_token') || '').trim();
-    if (!token) return { tokenPresent:false };
-    const body = token.split('.')[0] || '';
-    const b64 = body.replace(/-/g,'+').replace(/_/g,'/');
-    const pad = b64.length % 4 ? '='.repeat(4 - (b64.length % 4)) : '';
-    const payload = JSON.parse(atob(b64 + pad));
-    return {
-      tokenPresent:true,
-      email: payload?.email || null,
-      expIso: payload?.exp ? new Date(Number(payload.exp)).toISOString() : null,
-      expired: payload?.exp ? Date.now() > Number(payload.exp) : null,
-      len: token.length,
-    };
-  } catch (e) { return { tokenPresent:true, parseError:String(e.message||e) }; }
-}
-function renderDiag(extra={}){
-  if (!DIAG) return;
-  const el = document.getElementById('diagPanel');
-  if (!el) return;
-  el.classList.add('show');
-  const base = {
-    page: location.pathname,
-    api: API,
-    ts: new Date().toISOString(),
-    localUser: localStorage.getItem('bitdash_local_user') || null,
-    ...parseTokenLocal(),
-    ...extra,
-  };
-  el.textContent = '[BITDASH DIAG]\n' + JSON.stringify(base, null, 2);
-}
 const GOOGLE_CLIENT_ID = '90657228527-vg76ohma7rj6pkpc7p9sk4spk13dlbc1.apps.googleusercontent.com'; // Client ID Web do Google Cloud
 
 const statusEl = document.getElementById('status');
@@ -91,7 +52,7 @@ async function api(path, method='GET', body){
       body: body ? JSON.stringify(body) : undefined,
     });
     let j={}; try{ j=await r.json(); }catch{}
-    if(!r.ok || j.ok===false) { renderDiag({ apiPath:path, apiStatus:r.status, apiOk:false, apiError:j.error || `http_${r.status}` }); throw new Error(j.error || `http_${r.status}`); }
+    if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
     return j;
   } catch (e) {
     throw e;
@@ -114,7 +75,6 @@ async function loginWithGoogleCredential(credential){
     const email = j?.user?.email || '';
     const token = j?.token || '';
     if (token) localStorage.setItem('bitdash_auth_token', token);
-    renderDiag({ stage:'after-google-login', loginEmail: email || null, tokenReturned: !!token });
     if (email) localStorage.setItem('bitdash_local_user', email);
     statusEl.textContent = 'Login Google OK. Verificando assinatura...';
     setTimeout(()=>routeByPremium(email, !!j?.premium, token), 120);
@@ -124,7 +84,6 @@ async function loginWithGoogleCredential(credential){
       return;
     }
     statusEl.textContent = `Google login falhou: ${e.message}`;
-    renderDiag({ stage:'google-login-error', error: String(e.message||e) });
   }
 }
 
@@ -178,7 +137,6 @@ function initGoogleLogin(attempt = 0){
   // sem prompt automático para evitar navegação involuntária
 }
 
-renderDiag({ stage:'auth-init' });
 initGoogleLogin();
 </script>
 </body>

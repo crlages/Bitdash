@@ -35,10 +35,7 @@
       white-space:normal;
     }
     .tooltip-wrap:hover .tooltip,.tooltip-wrap.open .tooltip{display:block}
-  
-    #diagPanel{position:fixed;right:12px;bottom:12px;width:min(520px,92vw);max-height:46vh;overflow:auto;padding:10px;border:1px dashed #3d58a6;border-radius:10px;background:#0a132e;color:#bcd0ff;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;display:none;z-index:99999;box-shadow:0 8px 30px rgba(0,0,0,.45)}
-    #diagPanel.show{display:block}
-    </style>
+  </style>
 </head>
 <body>
   <div class="topbar">
@@ -91,46 +88,10 @@
         <button id="confirmBtn" disabled>Confirmar e enviar para precificação</button>
       </div>
     </div>
-  <pre id="diagPanel"></pre>
   </div>
 
 <script>
 const API = (window.BITDASH_API_URL || 'https://bitdash-api.crlages.workers.dev').replace(/\/$/, '');
-
-const DIAG = new URL(location.href).searchParams.get('diag') === '1' || localStorage.getItem('bitdash_diag') === '1';
-if (new URL(location.href).searchParams.get('diag') === '1') { try { localStorage.setItem('bitdash_diag','1'); } catch {} }
-function parseTokenLocal(){
-  try {
-    const token = String(localStorage.getItem('bitdash_auth_token') || '').trim();
-    if (!token) return { tokenPresent:false };
-    const body = token.split('.')[0] || '';
-    const b64 = body.replace(/-/g,'+').replace(/_/g,'/');
-    const pad = b64.length % 4 ? '='.repeat(4 - (b64.length % 4)) : '';
-    const payload = JSON.parse(atob(b64 + pad));
-    return {
-      tokenPresent:true,
-      email: payload?.email || null,
-      expIso: payload?.exp ? new Date(Number(payload.exp)).toISOString() : null,
-      expired: payload?.exp ? Date.now() > Number(payload.exp) : null,
-      len: token.length,
-    };
-  } catch (e) { return { tokenPresent:true, parseError:String(e.message||e) }; }
-}
-function renderDiag(extra={}){
-  if (!DIAG) return;
-  const el = document.getElementById('diagPanel');
-  if (!el) return;
-  el.classList.add('show');
-  const base = {
-    page: location.pathname,
-    api: API,
-    ts: new Date().toISOString(),
-    localUser: localStorage.getItem('bitdash_local_user') || null,
-    ...parseTokenLocal(),
-    ...extra,
-  };
-  el.textContent = '[BITDASH DIAG]\n' + JSON.stringify(base, null, 2);
-}
 
 function bootstrapSessionFromUrl(){
   try {
@@ -157,8 +118,7 @@ async function api(path, method='GET', body){
   });
   let j={}; try{ j=await r.json(); }catch{}
   if (j?.token) { try { localStorage.setItem('bitdash_auth_token', j.token); } catch {} }
-  if(!r.ok || j.ok===false) { renderDiag({ apiPath:path, apiStatus:r.status, apiOk:false, apiError:j.error || `http_${r.status}` }); throw new Error(j.error || `http_${r.status}`); }
-  renderDiag({ apiPath:path, apiStatus:r.status, apiOk:true });
+  if(!r.ok || j.ok===false) throw new Error(j.error || `http_${r.status}`);
   return j;
 }
 
@@ -220,32 +180,16 @@ function classifyB3(ticker){
 }
 
 function parseRaw(text){
-  const up = String(text||'').toUpperCase();
-  const norm = up.replace(/[;\n\t]+/g, ' ').replace(/,/g, '.');
+  const up = String(text||'').toUpperCase().replace(/[\n\t;]+/g,' ');
+  const re = /\b([A-Z]{2,12}\d{0,3})\b\s+(\d{1,9}(?:[\.,]\d+)?)\b/g;
   const map = new Map();
-
-  const add = (ticker, qtyRaw) => {
-    const t = normalizeTicker(ticker);
-    const q = Number(String(qtyRaw).replace(',', '.'));
-    if (!t || !Number.isFinite(q) || q <= 0) return;
-    map.set(t, (map.get(t)||0) + q);
-  };
-
-  // formato: TICKER QTD
-  const re1 = /\b([A-Z]{2,12}\d{0,3})\b\s+(\d{1,9}(?:[\.,]\d+)?)\b/g;
   let m;
-  while((m=re1.exec(norm))!==null) add(m[1], m[2]);
-
-  // formato: QTD TICKER
-  const re2 = /\b(\d{1,9}(?:[\.,]\d+)?)\b\s+([A-Z]{2,12}\d{0,3})\b/g;
-  while((m=re2.exec(norm))!==null) add(m[2], m[1]);
-
-  // fallback: só ticker => assume 1 unidade
-  if (map.size === 0) {
-    const onlyTicker = norm.match(/\b([A-Z]{2,12}\d{0,3})\b/);
-    if (onlyTicker) add(onlyTicker[1], 1);
+  while((m=re.exec(up))!==null){
+    const ticker = normalizeTicker(m[1]);
+    const qty = Number(String(m[2]).replace(',', '.'));
+    if (!Number.isFinite(qty) || qty <= 0) continue;
+    map.set(ticker, (map.get(ticker)||0) + qty);
   }
-
   return [...map.entries()].map(([ticker, qty]) => ({ ticker, qty }));
 }
 
@@ -350,19 +294,8 @@ document.getElementById('analyzeBtn').onclick = async () => {
 document.getElementById('confirmBtn').onclick = async () => {
   const status = document.getElementById('status');
   try {
-    // UX robusto: se não analisou antes, tenta analisar automaticamente no confirmar
-    if (!approvedItems.length) {
-      const raw = document.getElementById('raw').value || '';
-      const parsed = parseRaw(raw);
-      if (parsed.length) {
-        const reviewed = await Promise.all(parsed.map(validateWithUniverse));
-        renderReview(reviewed);
-      }
-    }
-
     if (!approvedItems.length) {
       status.textContent = 'Nenhum ativo aprovado para envio.';
-      alert('Nenhum ativo aprovado. Use exemplo: PETR4 1 e clique em Confirmar.');
       return;
     }
 
@@ -388,14 +321,6 @@ document.getElementById('confirmBtn').onclick = async () => {
 
     const merged = mergeByTicker(base, approvedItems);
     const payload = JSON.stringify(merged);
-    try {
-      localStorage.setItem('bitdash_last_add_result', JSON.stringify({
-        at: new Date().toISOString(),
-        approved: approvedItems.length,
-        merged: merged.length,
-        tickers: approvedItems.map(x => x.ticker)
-      }));
-    } catch {}
 
     try { sessionStorage.setItem('inboundPortfolio', payload); } catch {}
     try { localStorage.setItem('bitdash_inbound_portfolio', payload); } catch {}
@@ -411,7 +336,6 @@ document.getElementById('confirmBtn').onclick = async () => {
       status.textContent = 'Ativos adicionados localmente (sem login premium ativo).';
     }
 
-    alert('Ativo(s) enviado(s) com sucesso. Voltando ao dashboard...');
     location.href='commercial-dashboard.html';
   } catch (e) {
     status.textContent = 'Falha ao confirmar ativos: ' + (e.message || e);
@@ -449,11 +373,7 @@ document.getElementById('clearTopBtn').onclick = async ()=>{
 };
 
 bootstrapSessionFromUrl();
-renderDiag({ stage:'add-init' });
-(async ()=>{
-  updateTopAuthState();
-  try { const me = await api('/auth/me'); renderDiag({ stage:'add-auth-me', meOk: !!me?.ok, meEmail: me?.user?.email || null }); } catch(e){ renderDiag({ stage:'add-auth-me-fail', err:String(e.message||e) }); }
-})();
+updateTopAuthState();
 
 // Tooltip também no clique (mobile/touch)
 (function(){

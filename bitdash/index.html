@@ -143,7 +143,6 @@
       <button id="refreshBtn">Atualizar P/VP automático</button>
       <span id="status" class="muted">Aguardando atualização.</span>
       <span id="mode" class="muted"></span>
-      <span id="addResultBanner" class="add-ok-banner hidden"></span>
     </div>
     <table>
       <thead><tr><th>Ativo</th><th>Classe</th><th>Métrica (P/VP | P/L | Ref.)</th><th>Decisão</th><th>Motivo</th></tr></thead>
@@ -217,25 +216,6 @@ function parseLocalSession(){
   } catch { return null; }
 }
 
-
-function readLastAddResult(){
-  try { return JSON.parse(localStorage.getItem('bitdash_last_add_result') || 'null'); } catch { return null; }
-}
-
-function renderLastAddBanner(){
-  const el = document.getElementById('addResultBanner');
-  if (!el) return;
-  const r = readLastAddResult();
-  if (!r || !Array.isArray(r.tickers) || !r.tickers.length) {
-    el.classList.add('hidden');
-    el.textContent = '';
-    return;
-  }
-  const when = r.at ? new Date(r.at).toLocaleString('pt-BR') : '';
-  el.textContent = `Último add salvo: ${r.tickers.join(', ')} • aprovados: ${r.approved || 0} • ${when}`;
-  el.classList.remove('hidden');
-}
-
 function getLocalPremiumEmail(){
   const e = String(localStorage.getItem('bitdash_local_user') || '').trim().toLowerCase();
   return e || null;
@@ -257,22 +237,7 @@ async function api(path, method='GET', body){
   return j;
 }
 
-function isPremium(){
-  const s = parseLocalSession();
-  return !!s?.email;
-}
-
-function syncAuthBadge(){
-  const btn = document.getElementById('authBtn');
-  if (!btn) return;
-  const sess = parseLocalSession();
-  const email = sess?.email || String(localStorage.getItem('bitdash_local_user') || '').trim().toLowerCase() || '';
-  btn.textContent = email ? `Premium: ${email}` : 'Login Premium';
-  const saveBtn = document.getElementById('saveBtn');
-  const logoutBtn = document.getElementById('logoutBtn');
-  if (saveBtn) saveBtn.classList.toggle('hidden', !email);
-  if (logoutBtn) logoutBtn.classList.toggle('hidden', !email);
-}
+function isPremium(){ return !!currentUser?.email; }
 
 function mergePortfolio(base=[], inbound=[]){
   const m = new Map();
@@ -367,25 +332,22 @@ async function fetchLivePrice(asset){
 }
 
 function render(){
-  const sess = parseLocalSession();
-  if (sess?.email) currentUser = sess;
-  syncAuthBadge();
+  document.getElementById('authBtn').textContent = currentUser?.email ? `Premium: ${currentUser.email}` : 'Login Premium';
+  document.getElementById('saveBtn').classList.toggle('hidden', !isPremium());
+  document.getElementById('logoutBtn').classList.toggle('hidden', !isPremium());
   document.getElementById('mode').textContent = isPremium()
     ? 'Modo premium: pode salvar e recuperar depois.'
     : 'Modo grátis: ao sair do site, os dados podem ser perdidos (amostra).';
-  syncAuthBadge();
 
   const invFiis = document.getElementById('invFiis'); invFiis.innerHTML='';
   const invAcoes = document.getElementById('invAcoes'); invAcoes.innerHTML='';
   const invCriptos = document.getElementById('invCriptos'); invCriptos.innerHTML='';
   const dec = document.getElementById('decisionRows'); dec.innerHTML='';
 
-  const lastAddTickers = new Set((readLastAddResult()?.tickers || []).map(x=>String(x||'').toUpperCase()));
   portfolio.forEach(a=>{
     const unit = unitPrice(a);
     const total = estimateValue(a);
     const trInv=document.createElement('tr');
-    if (lastAddTickers.has(String(a.ticker).toUpperCase())) trInv.classList.add('add-hl');
     trInv.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${Number(a.qty).toLocaleString('pt-BR',{maximumFractionDigits:8})}</td><td>${brlOrNd(unit)}</td><td>${brlOrNd(total)}</td>`;
     if (a.cls==='FII') invFiis.appendChild(trInv);
     else if (a.cls==='CRIPTO') invCriptos.appendChild(trInv);
@@ -397,7 +359,6 @@ function render(){
     tr2.innerHTML=`<td><strong>${a.ticker}</strong></td><td>${a.cls}</td><td>${v!=null?(a.cls==='CRIPTO'?`${v.toFixed(2)}% (24h)`:(metricTypes[a.ticker]==='pl'?`${v.toFixed(2)} (P/L)`:(metricTypes[a.ticker]==='ref'?`${v.toFixed(2)} (Ref.)`:v.toFixed(2)))):'-'}</td><td><span class="decision ${cls}">${txt}</span></td><td>${reason(a)}</td>`;
     dec.appendChild(tr2);
   });
-  renderLastAddBanner();
   updateSummary();
 }
 
@@ -698,7 +659,6 @@ async function loadNews(){
 })();
 
 window.addEventListener('resize', () => {
-  renderLastAddBanner();
   updateSummary();
 });
 
@@ -712,9 +672,6 @@ window.addEventListener('resize', () => {
   // não bloqueia interface: inicia em paralelo
   refresh();
   setTimeout(loadNews, 150);
-  setTimeout(syncAuthBadge, 50);
-  setTimeout(syncAuthBadge, 500);
-  setInterval(syncAuthBadge, 1000);
 })();
 </script>
 </body>
