@@ -237,7 +237,19 @@ async function api(path, method='GET', body){
   return j;
 }
 
-function isPremium(){ return !!currentUser?.email; }
+function isPremium(){ return !!currentUser?.email || !!String(localStorage.getItem('bitdash_local_user')||'').trim(); }
+
+function syncAuthBadge(){
+  const btn=document.getElementById('authBtn');
+  if(!btn) return;
+  const t = parseLocalSession();
+  const email = String((t?.email || localStorage.getItem('bitdash_local_user') || '')).trim().toLowerCase();
+  btn.textContent = email ? `Premium: ${email}` : 'Login Premium';
+  const saveBtn=document.getElementById('saveBtn');
+  const logoutBtn=document.getElementById('logoutBtn');
+  if(saveBtn) saveBtn.classList.toggle('hidden', !email);
+  if(logoutBtn) logoutBtn.classList.toggle('hidden', !email);
+}
 
 function mergePortfolio(base=[], inbound=[]){
   const m = new Map();
@@ -332,9 +344,7 @@ async function fetchLivePrice(asset){
 }
 
 function render(){
-  document.getElementById('authBtn').textContent = currentUser?.email ? `Premium: ${currentUser.email}` : 'Login Premium';
-  document.getElementById('saveBtn').classList.toggle('hidden', !isPremium());
-  document.getElementById('logoutBtn').classList.toggle('hidden', !isPremium());
+  syncAuthBadge();
   document.getElementById('mode').textContent = isPremium()
     ? 'Modo premium: pode salvar e recuperar depois.'
     : 'Modo grátis: ao sair do site, os dados podem ser perdidos (amostra).';
@@ -669,6 +679,8 @@ window.addEventListener('resize', () => {
     return { ...x, ticker, cls: classify(ticker) };
   });
   render();
+  setTimeout(syncAuthBadge, 10);
+  setTimeout(syncAuthBadge, 300);
   // não bloqueia interface: inicia em paralelo
   refresh();
   setTimeout(loadNews, 150);

@@ -295,7 +295,17 @@ document.getElementById('confirmBtn').onclick = async () => {
   const status = document.getElementById('status');
   try {
     if (!approvedItems.length) {
+      const raw = document.getElementById('raw').value || '';
+      const parsed = parseRaw(raw);
+      if (parsed.length) {
+        const reviewed = await Promise.all(parsed.map(validateWithUniverse));
+        renderReview(reviewed);
+      }
+    }
+
+    if (!approvedItems.length) {
       status.textContent = 'Nenhum ativo aprovado para envio.';
+      alert('Nenhum ativo aprovado. Use exemplo: PETR4 1');
       return;
     }
 
