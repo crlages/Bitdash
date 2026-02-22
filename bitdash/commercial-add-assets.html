@@ -337,15 +337,18 @@ document.getElementById('confirmBtn').onclick = async () => {
     try { localStorage.setItem('bitdash_portfolio_draft', payload); } catch {}
     try { localStorage.removeItem('bitdash_portfolio_cleared'); } catch {}
 
-    // remoto com erro explícito quando houver sessão local
+    // remoto em segundo plano (não bloqueia o fluxo do usuário)
     const sess = parseLocalSession();
     if (sess?.email) {
-      await api('/portfolio','POST',{ portfolio: merged });
-      status.textContent = 'Ativos adicionados e carteira salva na nuvem.';
+      api('/portfolio','POST',{ portfolio: merged })
+        .then(()=>{ try { localStorage.setItem('bitdash_last_sync_status','ok'); } catch {} })
+        .catch((e)=>{ try { localStorage.setItem('bitdash_last_sync_status', 'fail:' + String(e.message||e)); } catch {} });
+      status.textContent = 'Ativos adicionados localmente. Sincronizando nuvem em segundo plano...';
     } else {
       status.textContent = 'Ativos adicionados localmente (sem login premium ativo).';
     }
 
+    alert('Ativos adicionados com sucesso.');
     location.href='commercial-dashboard.html';
   } catch (e) {
     status.textContent = 'Falha ao confirmar ativos: ' + (e.message || e);

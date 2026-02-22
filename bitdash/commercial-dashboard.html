@@ -221,6 +221,13 @@ function getLocalPremiumEmail(){
   return e || null;
 }
 
+function getSessionEmail(){
+  const t = parseLocalSession();
+  if (t?.email) return String(t.email).toLowerCase();
+  const local = getLocalPremiumEmail();
+  return local || null;
+}
+
 async function api(path, method='GET', body){
   const token = localStorage.getItem('bitdash_auth_token') || '';
   const headers = {'Content-Type':'application/json'};
@@ -237,13 +244,12 @@ async function api(path, method='GET', body){
   return j;
 }
 
-function isPremium(){ return !!currentUser?.email || !!String(localStorage.getItem('bitdash_local_user')||'').trim(); }
+function isPremium(){ return !!getSessionEmail(); }
 
 function syncAuthBadge(){
   const btn=document.getElementById('authBtn');
   if(!btn) return;
-  const t = parseLocalSession();
-  const email = String((t?.email || localStorage.getItem('bitdash_local_user') || '')).trim().toLowerCase();
+  const email = String(getSessionEmail() || '').trim().toLowerCase();
   btn.textContent = email ? `Premium: ${email}` : 'Login Premium';
   const saveBtn=document.getElementById('saveBtn');
   const logoutBtn=document.getElementById('logoutBtn');
@@ -273,8 +279,9 @@ function mergePortfolio(base=[], inbound=[]){
 async function loadPortfolio(){
   let base = null;
 
-  // 1) estado de autenticação determinístico via token local
-  currentUser = parseLocalSession();
+  // 1) estado de autenticação determinístico via token local + fallback local user
+  const sess = parseLocalSession();
+  currentUser = sess?.email ? sess : (getLocalPremiumEmail() ? { email:getLocalPremiumEmail(), name:null } : null);
 
   // 2) tenta carregar carteira remota se autenticado
   if (currentUser?.email) {
@@ -344,6 +351,8 @@ async function fetchLivePrice(asset){
 }
 
 function render(){
+  const se = getSessionEmail();
+  if (se) currentUser = { email: se, name: null };
   syncAuthBadge();
   document.getElementById('mode').textContent = isPremium()
     ? 'Modo premium: pode salvar e recuperar depois.'
