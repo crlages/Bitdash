@@ -64,7 +64,7 @@ function sessionEmail(){
 
 function setAuthUi(){
   const email = sessionEmail();
-  document.getElementById('authBtn').textContent = email ? `Premium: ${email}` : 'Login Premium';
+document.getElementById('authBtn').textContent = email ? `Premium: ${email}` : 'Login Premium (modo convidado)';
 }
 
 async function api(path, method='GET', body){
@@ -97,7 +97,13 @@ function render(){
 async function loadPortfolio(){
   const st = document.getElementById('status');
   try {
-    if (!parseToken()) { st.textContent = 'Sem sessão válida. Faça login.'; setAuthUi(); return; }
+    if (!parseToken()) {
+      const cached = JSON.parse(localStorage.getItem('bitdash_portfolio_cache') || '[]');
+      portfolio = Array.isArray(cached) ? cached : [];
+      st.textContent = 'Modo convidado: carteira local carregada.';
+      render();
+      return;
+    }
     const j = await api('/portfolio');
     portfolio = Array.isArray(j.portfolio) ? j.portfolio : [];
     localStorage.setItem('bitdash_portfolio_cache', JSON.stringify(portfolio));
@@ -123,6 +129,7 @@ document.getElementById('clearBtn').onclick = async ()=>{
   portfolio = [];
   localStorage.setItem('bitdash_portfolio_cache', '[]');
   render();
+  if (!parseToken()) { document.getElementById('status').textContent='Carteira local limpa (modo convidado).'; return; }
   try { await api('/portfolio','POST',{ portfolio: [] }); document.getElementById('status').textContent='Carteira limpa.'; }
   catch (e){ document.getElementById('status').textContent='Limpa local, falha nuvem: ' + (e.message||e); }
 };
